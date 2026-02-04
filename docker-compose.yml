@@ -21,6 +21,7 @@ services:
       DATABASE_URL: postgresql://ceiling:ceiling_secret@db:5432/ceiling_kp
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
     ports:
       - "2030:8000"
     depends_on:

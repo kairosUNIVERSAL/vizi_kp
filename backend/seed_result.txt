@@ -1,0 +1,13 @@
+Starting seed_db.py...
+Using user: user@example.com
+Seeding for company: Мои Потолки (ID: 1)
+Workbook loaded. Sheets: ['Полотна', 'Услуги', 'Освещение', 'Профили']
+Processing Полотна: Found 30 rows
+Finished Полотна. Added: 30, Updated: 0
+Processing Услуги: Found 71 rows
+Finished Услуги. Added: 101, Updated: 0
+Processing Освещение: Found 67 rows
+Finished Освещение. Added: 167, Updated: 1
+Processing Профили: Found 27 rows
+Finished Профили. Added: 191, Updated: 4
+Seed finished.

@@ -1,0 +1,55 @@
+from sqlalchemy.orm import Session, joinedload
+from app.models import PriceItem, Category
+from app.schemas.price import PriceItemCreate, PriceItemUpdate
+from typing import List, Optional
+
+class PriceService:
+    def get_categories(self, db: Session) -> List[Category]:
+        return db.query(Category).order_by(Category.sort_order).all()
+    
+    def get_items(self, db: Session, company_id: int, category_id: Optional[int] = None, active_only: bool = True) -> List[PriceItem]:
+        query = db.query(PriceItem).options(joinedload(PriceItem.category)).filter(PriceItem.company_id == company_id)
+        
+        if category_id:
+            query = query.filter(PriceItem.category_id == category_id)
+        
+        if active_only:
+            query = query.filter(PriceItem.is_active == True)
+            
+        return query.all()
+
+    def search_items(self, db: Session, company_id: int, query: str, limit: int = 10) -> List[PriceItem]:
+        q = f"%{query}%"
+        return db.query(PriceItem).options(joinedload(PriceItem.category)).filter(
+            PriceItem.company_id == company_id,
+            PriceItem.is_active == True,
+            (PriceItem.name.ilike(q) | PriceItem.synonyms.ilike(q))
+        ).limit(limit).all()
+    
+    def create_item(self, db: Session, company_id: int, item_in: PriceItemCreate) -> PriceItem:
+        item = PriceItem(
+            **item_in.model_dump(),
+            company_id=company_id,
+            is_custom=True
+        )
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        # Load category for response
+        return db.query(PriceItem).options(joinedload(PriceItem.category)).filter(PriceItem.id == item.id).first()
+    
+    def update_item(self, db: Session, item_id: int, item_in: PriceItemUpdate) -> Optional[PriceItem]:
+        item = db.query(PriceItem).filter(PriceItem.id == item_id).first()
+        if not item:
+            return None
+            
+        update_data = item_in.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(item, field, value)
+            
+        db.add(item)
+        db.commit()
+        db.refresh(item)
+        return db.query(PriceItem).options(joinedload(PriceItem.category)).filter(PriceItem.id == item_id).first()
+
+price_service = PriceService()

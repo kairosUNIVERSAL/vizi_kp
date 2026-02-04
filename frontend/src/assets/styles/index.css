@@ -1,0 +1,278 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* =============================================
+   Mobile First Design System
+   Base styles are for mobile, use responsive 
+   prefixes (sm:, md:, lg:) for larger screens
+   ============================================= */
+
+@layer base {
+
+    /* Smooth scrolling */
+    html {
+        scroll-behavior: smooth;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Prevent text resize on orientation change */
+    body {
+        -webkit-text-size-adjust: 100%;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* Make form elements look consistent */
+    input,
+    textarea,
+    select,
+    button {
+        font-size: 16px;
+        /* Prevents iOS zoom on focus */
+    }
+}
+
+@layer components {
+
+    /* ===== Buttons ===== */
+    .btn {
+        @apply px-4 py-3 rounded-xl font-medium transition-all duration-200;
+        @apply active:scale-95 touch-manipulation;
+        @apply md:py-2;
+    }
+
+    .btn-lg {
+        @apply px-6 py-4 text-lg;
+        @apply md:px-5 md:py-3;
+    }
+
+    .btn-primary {
+        @apply bg-blue-600 text-white;
+        @apply hover:bg-blue-700 active:bg-blue-800;
+        @apply shadow-lg shadow-blue-600/30;
+    }
+
+    .btn-secondary {
+        @apply bg-gray-100 text-gray-700;
+        @apply hover:bg-gray-200 active:bg-gray-300;
+    }
+
+    .btn-success {
+        @apply bg-green-600 text-white;
+        @apply hover:bg-green-700 active:bg-green-800;
+        @apply shadow-lg shadow-green-600/30;
+    }
+
+    .btn-danger {
+        @apply bg-red-600 text-white;
+        @apply hover:bg-red-700 active:bg-red-800;
+    }
+
+    /* ===== Inputs ===== */
+    .input {
+        @apply w-full px-4 py-3 text-base;
+        @apply border border-gray-300 rounded-xl;
+        @apply focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none;
+        @apply transition-all duration-200;
+        @apply md:py-2;
+    }
+
+    .input-lg {
+        @apply py-4 text-lg;
+    }
+
+    /* ===== Cards ===== */
+    .card {
+        @apply bg-white rounded-2xl shadow-sm;
+        @apply p-4 md:p-6;
+    }
+
+    .card-elevated {
+        @apply card shadow-lg;
+    }
+
+    /* ===== Mobile Navigation ===== */
+    .mobile-nav {
+        @apply fixed bottom-0 left-0 right-0;
+        @apply bg-white border-t border-gray-200;
+        @apply px-2 py-2 safe-area-pb;
+        @apply flex justify-around items-center;
+        @apply md:hidden z-50;
+    }
+
+    .mobile-nav-item {
+        @apply flex flex-col items-center gap-1 p-2;
+        @apply text-gray-500 transition-colors;
+    }
+
+    .mobile-nav-item.active {
+        @apply text-blue-600;
+    }
+
+    /* ===== Progress Steps (Mobile) ===== */
+    .stepper {
+        @apply flex items-center justify-center;
+        @apply overflow-x-auto py-2 px-4;
+        @apply -mx-4 mb-6;
+        @apply md:mb-8;
+    }
+
+    .stepper-item {
+        @apply flex items-center flex-shrink-0;
+    }
+
+    .stepper-circle {
+        @apply w-8 h-8 rounded-full flex items-center justify-center;
+        @apply text-sm font-medium;
+        @apply transition-all duration-300;
+        @apply md:w-10 md:h-10;
+    }
+
+    .stepper-circle.active {
+        @apply bg-blue-600 text-white shadow-lg shadow-blue-600/40;
+    }
+
+    .stepper-circle.completed {
+        @apply bg-green-500 text-white;
+    }
+
+    .stepper-circle.pending {
+        @apply bg-gray-200 text-gray-500;
+    }
+
+    .stepper-label {
+        @apply hidden md:block ml-2 text-sm font-medium;
+    }
+
+    .stepper-connector {
+        @apply w-6 h-0.5 mx-1 md:w-12;
+    }
+
+    /* ===== Touch-Friendly List Items ===== */
+    .list-item {
+        @apply flex items-center gap-3 p-4;
+        @apply bg-white rounded-xl;
+        @apply active:bg-gray-50 transition-colors;
+        @apply touch-manipulation cursor-pointer;
+    }
+
+    /* ===== Floating Action Button ===== */
+    .fab {
+        @apply fixed right-4 bottom-20 md:bottom-4;
+        @apply w-14 h-14 rounded-full;
+        @apply bg-blue-600 text-white;
+        @apply flex items-center justify-center;
+        @apply shadow-lg shadow-blue-600/40;
+        @apply active:scale-90 transition-transform;
+        @apply z-40;
+    }
+
+    /* ===== Voice Recording Button ===== */
+    .voice-btn {
+        @apply w-20 h-20 md:w-16 md:h-16;
+        @apply rounded-full flex items-center justify-center;
+        @apply text-3xl md:text-2xl;
+        @apply transition-all duration-200;
+        @apply touch-manipulation;
+    }
+
+    .voice-btn.recording {
+        @apply bg-red-500 text-white animate-pulse;
+        @apply shadow-lg shadow-red-500/50;
+    }
+
+    .voice-btn.idle {
+        @apply bg-gray-800 text-white;
+        @apply hover:bg-gray-700 active:bg-gray-900;
+    }
+
+    /* ===== Bottom Sheet ===== */
+    .bottom-sheet {
+        @apply fixed bottom-0 left-0 right-0;
+        @apply bg-white rounded-t-3xl;
+        @apply shadow-2xl;
+        @apply transition-transform duration-300;
+        @apply z-50;
+    }
+
+    .bottom-sheet-handle {
+        @apply w-10 h-1 bg-gray-300 rounded-full;
+        @apply mx-auto mt-3 mb-4;
+    }
+
+    /* ===== Safe Areas for Mobile ===== */
+    .safe-area-pt {
+        padding-top: env(safe-area-inset-top);
+    }
+
+    .safe-area-pb {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+
+    /* ===== Mobile Container ===== */
+    .mobile-container {
+        @apply px-4 pb-24 md:pb-8;
+        @apply max-w-3xl mx-auto;
+    }
+
+    /* ===== Skeleton Loading ===== */
+    .skeleton {
+        @apply animate-pulse bg-gray-200 rounded;
+    }
+
+    /* ===== Pull to Refresh Indicator ===== */
+    .pull-indicator {
+        @apply text-center py-4 text-gray-500;
+    }
+
+    /* ===== Swipe Actions ===== */
+    .swipeable {
+        @apply overflow-x-hidden relative;
+    }
+
+    .swipe-action {
+        @apply absolute right-0 top-0 bottom-0;
+        @apply flex items-center justify-center;
+        @apply w-20 text-white;
+    }
+
+    /* ===== Toast Notifications ===== */
+    .toast {
+        @apply fixed bottom-24 md:bottom-8 left-4 right-4;
+        @apply max-w-md mx-auto;
+        @apply bg-gray-900 text-white;
+        @apply px-4 py-3 rounded-xl;
+        @apply shadow-lg z-50;
+        @apply flex items-center gap-3;
+    }
+}
+
+@layer utilities {
+
+    /* Touch-friendly minimum size */
+    .touch-target {
+        min-height: 44px;
+        min-width: 44px;
+    }
+
+    /* Hide scrollbar but keep functionality */
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Prevent user select on mobile */
+    .no-select {
+        -webkit-user-select: none;
+        user-select: none;
+    }
+
+    /* Glass morphism effect */
+    .glass {
+        @apply bg-white/80 backdrop-blur-lg;
+    }
+}

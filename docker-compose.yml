@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ceiling
+      POSTGRES_PASSWORD: ceiling_secret
+      POSTGRES_DB: ceiling_kp
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      DATABASE_URL: postgresql://ceiling:ceiling_secret@db:5432/ceiling_kp
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+    ports:
+      - "2030:8000"
+    depends_on:
+      - db
+    volumes:
+      - ./backend:/app
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "2031:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

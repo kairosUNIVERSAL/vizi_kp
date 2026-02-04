@@ -32,15 +32,19 @@ class TranscribeService:
         audio_base64 = base64.b64encode(audio_data).decode('utf-8')
         
         # Determine format from mime_type
+        # Note: webm is not directly supported, try as ogg (both use opus codec)
         format_map = {
-            "audio/webm": "webm",
+            "audio/mp4": "m4a",
+            "audio/ogg": "ogg",
+            "audio/webm": "ogg",  # WebM with Opus -> try as OGG
             "audio/mp3": "mp3",
             "audio/mpeg": "mp3",
             "audio/wav": "wav",
-            "audio/ogg": "ogg",
-            "audio/m4a": "m4a"
+            "audio/m4a": "m4a",
+            "audio/flac": "flac",
+            "audio/aac": "aac"
         }
-        audio_format = format_map.get(mime_type, "webm")
+        audio_format = format_map.get(mime_type, "ogg")
         
         headers = {
             "Authorization": f"Bearer {self.api_key}",

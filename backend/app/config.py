@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     OPENROUTER_PARSER_MODEL: str = "anthropic/claude-sonnet-4"
     
     # Model for audio transcription (Gemini Flash)
-    OPENROUTER_TRANSCRIBE_MODEL: str = "google/gemini-2.5-flash-preview-05-20"
+    OPENROUTER_TRANSCRIBE_MODEL: str = "google/gemini-2.5-flash"
     
     # CORS
     CORS_ORIGINS: List[str] = ["*"]

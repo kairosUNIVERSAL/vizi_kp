@@ -114,9 +114,24 @@ const startRecording = async () => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     
-    mediaRecorder = new MediaRecorder(stream, {
-      mimeType: 'audio/webm;codecs=opus'
-    })
+    // Try supported formats in order of preference
+    const mimeTypes = [
+      'audio/mp4',
+      'audio/ogg;codecs=opus',
+      'audio/webm;codecs=opus',
+      'audio/webm'
+    ]
+    
+    let selectedMimeType = ''
+    for (const mimeType of mimeTypes) {
+      if (MediaRecorder.isTypeSupported(mimeType)) {
+        selectedMimeType = mimeType
+        break
+      }
+    }
+    
+    const options = selectedMimeType ? { mimeType: selectedMimeType } : {}
+    mediaRecorder = new MediaRecorder(stream, options)
     
     mediaRecorder.ondataavailable = (event) => {
       if (event.data.size > 0) {

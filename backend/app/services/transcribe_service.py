@@ -31,6 +31,17 @@ class TranscribeService:
         # Encode audio to Base64
         audio_base64 = base64.b64encode(audio_data).decode('utf-8')
         
+        # Determine format from mime_type
+        format_map = {
+            "audio/webm": "webm",
+            "audio/mp3": "mp3",
+            "audio/mpeg": "mp3",
+            "audio/wav": "wav",
+            "audio/ogg": "ogg",
+            "audio/m4a": "m4a"
+        }
+        audio_format = format_map.get(mime_type, "webm")
+        
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -38,7 +49,7 @@ class TranscribeService:
             "X-Title": "Ceiling KP Generator"
         }
         
-        # Gemini multimodal message format
+        # Correct OpenRouter multimodal format for audio
         payload = {
             "model": self.model,
             "messages": [
@@ -50,9 +61,10 @@ class TranscribeService:
                             "text": "Пожалуйста, транскрибируй это аудио на русском языке. Верни только текст транскрипции, без комментариев."
                         },
                         {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:{mime_type};base64,{audio_base64}"
+                            "type": "input_audio",
+                            "input_audio": {
+                                "data": audio_base64,
+                                "format": audio_format
                             }
                         }
                     ]

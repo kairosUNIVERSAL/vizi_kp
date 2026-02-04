@@ -95,6 +95,12 @@ class TranscribeService:
 
     def _convert_to_mp3(self, input_data: bytes) -> bytes:
         """Convert input audio bytes to MP3 using ffmpeg"""
+        # Check if ffmpeg is installed
+        import shutil
+        if not shutil.which("ffmpeg"):
+            logger.error("ffmpeg not found in system PATH")
+            raise RuntimeError("ffmpeg is not installed on the server. Please rebuild the Docker image.")
+
         with tempfile.NamedTemporaryFile(delete=False, suffix=".input") as tmp_in:
             tmp_in.write(input_data)
             tmp_in_path = tmp_in.name
@@ -102,11 +108,8 @@ class TranscribeService:
         tmp_out_path = tmp_in_path + ".mp3"
         
         try:
+            logger.info(f"Converting audio size {len(input_data)} bytes to MP3...")
             # ffmpeg command: input -> convert to mp3 -> output
-            # -y: overwrite output
-            # -vn: disable video
-            # -ac: 1 (mono)
-            # -ar: 16000 (sample rate)
             process = subprocess.run(
                 [
                     "ffmpeg", "-y", 
@@ -120,15 +123,30 @@ class TranscribeService:
                 check=True
             )
             
+            if not os.path.exists(tmp_out_path) or os.path.getsize(tmp_out_path) == 0:
+                raise Exception("ffmpeg produced empty output file")
+                
             with open(tmp_out_path, "rb") as f:
-                return f.read()
+                converted_data = f.read()
+                logger.info(f"Conversion successful. New size: {len(converted_data)} bytes")
+                return converted_data
                 
         except subprocess.CalledProcessError as e:
-            logger.error(f"ffmpeg error: {e.stderr.decode()}")
-            raise Exception("FFmpeg conversion failed")
+            error_msg = e.stderr.decode() if e.stderr else "Unknown ffmpeg error"
+            logger.error(f"ffmpeg conversion failed: {error_msg}")
+            raise Exception(f"FFmpeg conversion failed: {error_msg}")
+        except Exception as e:
+            logger.error(f"Unexpected error during audio conversion: {e}")
+            raise
         finally:
             # Cleanup temp files
-            if os.path.exists(tmp_in_path):
-                os.unlink(tmp_in_path)
-            if os.path.exists(tmp_out_path):
-                os.unlink(tmp_out_path)
+            try:
+                if os.path.exists(tmp_in_path):
+                    os.unlink(tmp_in_path)
+                if os.path.exists(tmp_out_path):
+                    os.unlink(tmp_out_path)
+            except Exception as e:
+                logger.warning(f"Failed to cleanup temp files: {e}")
+
+
+transcribe_service = TranscribeService()

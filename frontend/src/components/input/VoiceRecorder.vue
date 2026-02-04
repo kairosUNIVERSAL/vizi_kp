@@ -1,6 +1,6 @@
 <template>
   <div class="voice-recorder space-y-4">
-    <!-- Instructions (Collapsible on Mobile) -->
+    <!-- Instructions -->
     <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 md:p-4">
       <div class="flex items-start gap-2">
         <span class="text-lg">💡</span>
@@ -16,29 +16,31 @@
       </div>
     </div>
     
-    <!-- Recording Button (Large Touch Target) -->
+    <!-- Recording Button -->
     <div class="flex justify-center py-4">
       <button
         @click="toggleRecording"
-        :disabled="!isSupported"
+        :disabled="isTranscribing"
         :class="[
           'voice-btn touch-target',
-          isListening ? 'recording' : 'idle'
+          isRecording ? 'recording' : 'idle'
         ]"
       >
-        <span v-if="isListening">⏹️</span>
+        <span v-if="isTranscribing" class="animate-spin">⏳</span>
+        <span v-else-if="isRecording">⏹️</span>
         <span v-else>🎤</span>
       </button>
     </div>
     
     <!-- Recording Status -->
-    <p class="text-center text-sm font-medium" :class="isListening ? 'text-red-500' : 'text-gray-500'">
-      <span v-if="isListening" class="inline-flex items-center gap-2">
-        <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-        Запись...
+    <p class="text-center text-sm font-medium" :class="statusClass">
+      <span v-if="isTranscribing" class="inline-flex items-center gap-2">
+        <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+        Распознавание... (Gemini AI)
       </span>
-      <span v-else-if="!isSupported" class="text-yellow-600">
-        Браузер не поддерживает голосовой ввод
+      <span v-else-if="isRecording" class="inline-flex items-center gap-2">
+        <span class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+        Запись... {{ recordingTime }}с
       </span>
       <span v-else>
         Нажмите для записи
@@ -47,7 +49,7 @@
     
     <!-- Error Message -->
     <div v-if="error" class="bg-red-50 border border-red-200 rounded-xl p-3">
-      <p class="text-red-700 text-sm text-center">{{ getErrorMessage(error) }}</p>
+      <p class="text-red-700 text-sm text-center">{{ error }}</p>
     </div>
     
     <!-- Transcript Area -->
@@ -78,8 +80,8 @@
 </template>
 
 <script setup>
-import { watch } from 'vue'
-import { useSpeechRecognition } from '@/composables/useSpeechRecognition'
+import { ref, computed, onUnmounted } from 'vue'
+import transcribeService from '@/services/transcribeService'
 
 const props = defineProps({
   modelValue: { type: String, default: '' }
@@ -87,46 +89,128 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue'])
 
-const { 
-  isSupported, 
-  isListening, 
-  transcript: internalTranscript, 
-  error, 
-  startListening, 
-  stopListening, 
-  clearTranscript 
-} = useSpeechRecognition()
+// State
+const isRecording = ref(false)
+const isTranscribing = ref(false)
+const error = ref(null)
+const recordingTime = ref(0)
 
-// Sync internal transcript to parent
-watch(internalTranscript, (val) => {
-  if (val) {
-    const current = props.modelValue || ''
-    const newValue = current ? current + ' ' + val : val
-    emit('update:modelValue', newValue)
-    clearTranscript()
-  }
+// MediaRecorder
+let mediaRecorder = null
+let audioChunks = []
+let recordingTimer = null
+
+const statusClass = computed(() => {
+  if (isTranscribing.value) return 'text-blue-500'
+  if (isRecording.value) return 'text-red-500'
+  return 'text-gray-500'
 })
 
+const startRecording = async () => {
+  error.value = null
+  audioChunks = []
+  recordingTime.value = 0
+  
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    
+    mediaRecorder = new MediaRecorder(stream, {
+      mimeType: 'audio/webm;codecs=opus'
+    })
+    
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        audioChunks.push(event.data)
+      }
+    }
+    
+    mediaRecorder.onstop = async () => {
+      // Stop all tracks
+      stream.getTracks().forEach(track => track.stop())
+      
+      // Create blob and transcribe
+      const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+      await transcribeAudio(audioBlob)
+    }
+    
+    mediaRecorder.start()
+    isRecording.value = true
+    
+    // Recording timer
+    recordingTimer = setInterval(() => {
+      recordingTime.value++
+      // Auto-stop after 60 seconds
+      if (recordingTime.value >= 60) {
+        stopRecording()
+      }
+    }, 1000)
+    
+  } catch (err) {
+    error.value = getErrorMessage(err)
+  }
+}
+
+const stopRecording = () => {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop()
+  }
+  isRecording.value = false
+  
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+    recordingTimer = null
+  }
+}
+
+const transcribeAudio = async (audioBlob) => {
+  isTranscribing.value = true
+  error.value = null
+  
+  try {
+    const transcript = await transcribeService.transcribe(audioBlob)
+    
+    if (transcript) {
+      const current = props.modelValue || ''
+      const newValue = current ? current + ' ' + transcript : transcript
+      emit('update:modelValue', newValue)
+    }
+  } catch (err) {
+    error.value = `Ошибка распознавания: ${err.response?.data?.detail || err.message}`
+  } finally {
+    isTranscribing.value = false
+  }
+}
+
 const toggleRecording = () => {
-  if (isListening.value) {
-    stopListening()
+  if (isRecording.value) {
+    stopRecording()
   } else {
-    startListening()
+    startRecording()
   }
 }
 
 const clearAll = () => {
   emit('update:modelValue', '')
-  clearTranscript()
+  error.value = null
 }
 
 const getErrorMessage = (err) => {
-  const messages = {
-    'not-allowed': 'Доступ к микрофону запрещён',
-    'no-speech': 'Речь не обнаружена',
-    'network': 'Ошибка сети',
-    'aborted': 'Запись отменена'
+  if (err.name === 'NotAllowedError') {
+    return 'Доступ к микрофону запрещён'
   }
-  return messages[err] || `Ошибка: ${err}`
+  if (err.name === 'NotFoundError') {
+    return 'Микрофон не найден'
+  }
+  return `Ошибка: ${err.message}`
 }
+
+onUnmounted(() => {
+  if (recordingTimer) {
+    clearInterval(recordingTimer)
+  }
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stop()
+  }
+})
 </script>
+

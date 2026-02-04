@@ -25,7 +25,7 @@ app.add_middleware(
 )
 
 # Import routers after app is created
-from app.api import auth, users, price, estimates, pdf
+from app.api import auth, users, price, estimates, pdf, transcribe
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Auth"])
@@ -33,6 +33,7 @@ app.include_router(users.router, prefix="/api/users", tags=["Users"])
 app.include_router(price.router, prefix="/api/price", tags=["Price"])
 app.include_router(estimates.router, prefix="/api/estimates", tags=["Estimates"])
 app.include_router(pdf.router, prefix="/api/pdf", tags=["PDF"])
+app.include_router(transcribe.router, prefix="/api", tags=["Transcribe"])
 
 @app.on_event("startup")
 def on_startup():

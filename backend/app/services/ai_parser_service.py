@@ -11,7 +11,7 @@ class AIParserService:
     def __init__(self):
         self.api_key = settings.OPENROUTER_API_KEY
         self.base_url = settings.OPENROUTER_BASE_URL
-        self.model = settings.OPENROUTER_MODEL
+        self.model = settings.OPENROUTER_PARSER_MODEL
     
     def parse_transcript(self, db: Session, company_id: int, transcript: str) -> Dict[str, Any]:
         # Get price items for matching
@@ -181,7 +181,14 @@ class AIParserService:
         # 4. Add items to first room (Simple logic: all items go to first/only room)
         # Ideally we should split by context (items after room declaration), but this is a simple fallback.
         first_room_name = list(found_rooms.keys())[0]
+        room_area = found_rooms[first_room_name].get('area', 0)
+        
         for item in parsed_items:
+            # If item is measured in m² and room has area, use room area as quantity
+            if item.get('unit') == 'м²' and room_area > 0:
+                item['quantity'] = room_area
+                item['sum'] = round(room_area * item.get('price', 0), 2)
+            
             found_rooms[first_room_name]['items'].append(item)
             found_rooms[first_room_name]['subtotal'] += item.get('sum', 0)
         

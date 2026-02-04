@@ -19,7 +19,12 @@ class Settings(BaseSettings):
     # OpenRouter AI
     OPENROUTER_API_KEY: str = ""
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
-    OPENROUTER_MODEL: str = "anthropic/claude-3.5-sonnet"  # Can use any model from OpenRouter
+    
+    # Model for text parsing (Claude Sonnet 4.5)
+    OPENROUTER_PARSER_MODEL: str = "anthropic/claude-sonnet-4"
+    
+    # Model for audio transcription (Gemini Flash)
+    OPENROUTER_TRANSCRIBE_MODEL: str = "google/gemini-2.5-flash-preview-05-20"
     
     # CORS
     CORS_ORIGINS: List[str] = ["*"]

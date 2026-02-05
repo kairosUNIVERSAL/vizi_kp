@@ -13,7 +13,7 @@ class AIParserService:
         self.base_url = settings.OPENROUTER_BASE_URL
         self.model = settings.OPENROUTER_PARSER_MODEL
     
-    def parse_transcript(self, db: Session, company_id: int, transcript: str) -> Dict[str, Any]:
+    def parse_transcript(self, db: Session, company_id: int, transcript: str, user=None) -> Dict[str, Any]:
         # Get price items for matching
         price_items = db.query(PriceItem).filter(
             PriceItem.company_id == company_id,
@@ -29,16 +29,27 @@ class AIParserService:
         prompt = self._build_prompt(items_text, transcript)
         
         try:
-            response = self._call_openrouter(prompt)
-            result = self._parse_response(response, price_items)
+            response_text, usage = self._call_openrouter(prompt)
+            result = self._parse_response(response_text, price_items)
+            
+            # Update user statistics if user provided
+            if user and usage:
+                tokens_used = usage.get("total_tokens", 0)
+                # OpenRouter pricing (approximate for common models)
+                cost = tokens_used * 0.000002  # ~$2 per 1M tokens average
+                
+                user.total_tokens_used = (user.total_tokens_used or 0) + tokens_used
+                user.total_api_cost = float(user.total_api_cost or 0) + cost
+                db.commit()
+            
             return result
         except Exception as e:
             print(f"OpenRouter API error: {e}")
             # Fallback on AI error
             return self._fallback_parse(transcript, price_items)
 
-    def _call_openrouter(self, prompt: str) -> str:
-        """Call OpenRouter API (OpenAI-compatible)"""
+    def _call_openrouter(self, prompt: str) -> tuple:
+        """Call OpenRouter API (OpenAI-compatible). Returns (response_text, usage_dict)."""
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -61,7 +72,9 @@ class AIParserService:
             )
             response.raise_for_status()
             data = response.json()
-            return data["choices"][0]["message"]["content"]
+            text = data["choices"][0]["message"]["content"]
+            usage = data.get("usage", {})
+            return text, usage
 
     def _fallback_parse(self, transcript: str, price_items: List[PriceItem]) -> Dict[str, Any]:
         """Simple regex-based parser when AI is not available."""

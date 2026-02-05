@@ -50,6 +50,32 @@
                 </div>
             </div>
         </router-link>
+
+        <!-- Profile Card -->
+        <router-link :to="{name: 'profile'}" class="block group">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-4">
+                <div class="bg-purple-100 p-3 rounded-lg text-purple-600 group-hover:scale-110 transition-transform">
+                   <PhUserGear :size="28" />
+                </div>
+                <div>
+                  <h3 class="font-bold text-gray-900">Профиль</h3>
+                  <p class="text-xs text-gray-500">Настройки компании и PDF</p>
+                </div>
+            </div>
+        </router-link>
+
+        <!-- Admin Card (only for admins) -->
+        <router-link v-if="authStore.user?.is_admin" :to="{name: 'admin'}" class="block group">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-4">
+                <div class="bg-orange-100 p-3 rounded-lg text-orange-600 group-hover:scale-110 transition-transform">
+                   <PhShieldCheck :size="28" />
+                </div>
+                <div>
+                  <h3 class="font-bold text-gray-900">Администрирование</h3>
+                  <p class="text-xs text-gray-500">Пользователи и статистика</p>
+                </div>
+            </div>
+        </router-link>
     </div>
 
     <!-- Recent Estimates Table -->
@@ -137,7 +163,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEstimateStore } from '@/stores/estimate'
-import { PhPlusCircle, PhSignOut, PhCircleNotch, PhFileText, PhArrowRight, PhListBullets, PhTrash } from '@phosphor-icons/vue'
+import { PhPlusCircle, PhSignOut, PhCircleNotch, PhFileText, PhArrowRight, PhListBullets, PhTrash, PhUserGear, PhShieldCheck } from '@phosphor-icons/vue'
 import api from '@/services/api'
 
 const router = useRouter()

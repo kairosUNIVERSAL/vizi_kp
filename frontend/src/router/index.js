@@ -33,6 +33,17 @@ const routes = [
         path: '/estimate/:id',
         name: 'estimate-view',
         component: () => import('@/views/estimate/EstimateDetailView.vue'),
+    },
+    {
+        path: '/profile',
+        name: 'profile',
+        component: () => import('@/views/profile/ProfileView.vue'),
+    },
+    {
+        path: '/admin',
+        name: 'admin',
+        component: () => import('@/views/admin/AdminView.vue'),
+        meta: { admin: true }
     }
 ]
 

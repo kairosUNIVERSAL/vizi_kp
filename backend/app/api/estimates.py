@@ -54,7 +54,7 @@ def parse_transcript(
     if not current_user.company:
          raise HTTPException(status_code=400, detail="User has no company")
          
-    return ai_parser_service.parse_transcript(db, current_user.company.id, transcript)
+    return ai_parser_service.parse_transcript(db, current_user.company.id, transcript, user=current_user)
 
 @router.delete("/{estimate_id}", status_code=204)
 def delete_estimate(

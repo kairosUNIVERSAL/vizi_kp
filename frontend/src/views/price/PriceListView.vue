@@ -129,7 +129,15 @@ import { ref, computed, onMounted } from 'vue'
 import { usePriceStore } from '@/stores/price'
 import { PhPlus, PhMagnifyingGlass, PhX, PhPencilSimple, PhTrash } from '@phosphor-icons/vue'
 import PriceItemModal from './PriceItemModal.vue'
-import { debounce } from 'lodash'
+
+// Simple debounce implementation (no lodash needed)
+const debounce = (fn, delay) => {
+    let timeoutId
+    return (...args) => {
+        clearTimeout(timeoutId)
+        timeoutId = setTimeout(() => fn(...args), delay)
+    }
+}
 
 const priceStore = usePriceStore()
 const loading = ref(true)

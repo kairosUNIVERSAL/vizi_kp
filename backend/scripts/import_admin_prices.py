@@ -26,10 +26,15 @@ def run_import():
             return
 
         print(f"Found admin: {admin.email} (Company ID: {admin.company.id})")
-        print("Starting price import...")
         
-        # Reuse import logic from import_prices_manual
+        # Clear existing items for this company to avoid "skipped" if they exist
+        db.query(PriceItem).filter(PriceItem.company_id == admin.company.id).delete()
+        db.commit()
+        
+        print("Starting clean price import...")
+        # Reuse import logic
         import_all(admin.company.id)
+
         
         print("\nAdmin price list updated successfully!")
         

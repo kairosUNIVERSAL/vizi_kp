@@ -55,3 +55,20 @@ def parse_transcript(
          raise HTTPException(status_code=400, detail="User has no company")
          
     return ai_parser_service.parse_transcript(db, current_user.company.id, transcript)
+
+@router.delete("/{estimate_id}", status_code=204)
+def delete_estimate(
+    estimate_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    """Delete an estimate."""
+    estimate = estimate_service.get_estimate(db, estimate_id)
+    if not estimate:
+        raise HTTPException(status_code=404, detail="Estimate not found")
+    if estimate.company_id != current_user.company.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    estimate_service.delete_estimate(db, estimate_id)
+    from starlette.responses import Response
+    return Response(status_code=204)

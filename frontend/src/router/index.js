@@ -28,6 +28,11 @@ const routes = [
         path: '/prices',
         name: 'prices',
         component: () => import('@/views/price/PriceListView.vue'),
+    },
+    {
+        path: '/estimate/:id',
+        name: 'estimate-view',
+        component: () => import('@/views/estimate/EstimateDetailView.vue'),
     }
 ]
 

@@ -88,7 +88,12 @@
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-100">
-            <tr v-for="est in estimateStore.estimates" :key="est.id" class="hover:bg-gray-50 transition-colors">
+            <tr 
+              v-for="est in estimateStore.estimates" 
+              :key="est.id" 
+              class="hover:bg-gray-50 transition-colors cursor-pointer"
+              @click="viewEstimate(est.id)"
+            >
               <td class="px-6 py-4 text-sm text-gray-600">
                 {{ formatDate(est.created_at) }}
               </td>
@@ -107,10 +112,17 @@
                   {{ est.status }}
                 </span>
               </td>
-              <td class="px-6 py-4 text-right">
-                <button class="text-gray-400 hover:text-blue-600 transition-colors">
-                  <PhArrowRight :size="20" />
-                </button>
+              <td class="px-6 py-4 text-right" @click.stop>
+                <div class="flex items-center justify-end gap-2">
+                  <button 
+                    @click="deleteEstimate(est.id, est.client_name)"
+                    class="p-1 text-gray-300 hover:text-red-500 transition-colors"
+                    title="Удалить"
+                  >
+                    <PhTrash :size="18" />
+                  </button>
+                  <PhArrowRight :size="20" class="text-gray-400" />
+                </div>
               </td>
             </tr>
           </tbody>
@@ -122,10 +134,13 @@
 
 <script setup>
 import { onMounted, ref, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEstimateStore } from '@/stores/estimate'
-import { PhPlusCircle, PhSignOut, PhCircleNotch, PhFileText, PhArrowRight, PhListBullets } from '@phosphor-icons/vue'
+import { PhPlusCircle, PhSignOut, PhCircleNotch, PhFileText, PhArrowRight, PhListBullets, PhTrash } from '@phosphor-icons/vue'
+import api from '@/services/api'
 
+const router = useRouter()
 const authStore = useAuthStore()
 const estimateStore = useEstimateStore()
 const loading = ref(false)
@@ -154,6 +169,21 @@ const getStatusClass = (status) => {
     'sent': 'bg-blue-100 text-blue-700'
   }
   return classes[status] || 'bg-gray-100 text-gray-600'
+}
+
+const viewEstimate = (id) => {
+  router.push({ name: 'estimate-view', params: { id } })
+}
+
+const deleteEstimate = async (id, clientName) => {
+  if (!confirm(`Удалить смету для "${clientName}"?`)) return
+  
+  try {
+    await api.delete(`/estimates/${id}`)
+    await estimateStore.fetchEstimates()
+  } catch (e) {
+    alert('Ошибка удаления: ' + (e.message || 'Неизвестная ошибка'))
+  }
 }
 
 onMounted(async () => {

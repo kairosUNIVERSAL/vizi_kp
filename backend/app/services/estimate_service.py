@@ -70,4 +70,13 @@ class EstimateService:
             joinedload(Estimate.rooms).joinedload(EstimateRoom.items)
         ).filter(Estimate.company_id == company_id).order_by(Estimate.created_at.desc()).all()
 
+    def delete_estimate(self, db: Session, estimate_id: int) -> bool:
+        """Delete an estimate and all related rooms/items (cascade)."""
+        estimate = db.query(Estimate).filter(Estimate.id == estimate_id).first()
+        if not estimate:
+            return False
+        db.delete(estimate)
+        db.commit()
+        return True
+
 estimate_service = EstimateService()

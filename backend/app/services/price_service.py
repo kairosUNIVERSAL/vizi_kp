@@ -28,7 +28,7 @@ class PriceService:
     
     def create_item(self, db: Session, company_id: int, item_in: PriceItemCreate) -> PriceItem:
         item = PriceItem(
-            **item_in.model_dump(),
+            **item_in.model_dump(exclude={'is_custom'}),
             company_id=company_id,
             is_custom=True
         )

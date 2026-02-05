@@ -195,8 +195,8 @@ const logoUrl = computed(() => {
 onMounted(async () => {
   try {
     const res = await api.get('/users/me')
-    if (res.company) {
-      Object.assign(form.value, res.company)
+    if (res.data.company) {
+      Object.assign(form.value, res.data.company)
     }
   } catch (e) {
     error.value = 'Ошибка загрузки профиля'
@@ -232,7 +232,7 @@ const uploadLogo = async (event) => {
     const res = await api.post('/upload/logo', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    form.value.logo_path = res.logo_path
+    form.value.logo_path = res.data.logo_path
     success.value = 'Логотип загружен'
     setTimeout(() => { success.value = null }, 3000)
   } catch (e) {

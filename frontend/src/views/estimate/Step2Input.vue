@@ -162,6 +162,15 @@
                   </button>
               </div>
             </div>
+
+            <!-- Quick Add Button -->
+            <button 
+                @click="openQuickAdd(idx)"
+                class="w-full mt-3 py-2 border-2 border-dashed border-gray-200 rounded-xl text-xs font-bold text-gray-400 hover:border-blue-200 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+            >
+                <PhPlus :size="14" />
+                Добавить позицию
+            </button>
           </div>
         </div>
       </div>
@@ -199,17 +208,41 @@
             :key="idx" 
             class="bg-white p-2 rounded border border-yellow-100 flex justify-between items-center text-sm"
           >
-            <span class="truncate font-medium">{{ item.original_text || item.name }}</span>
-            <button 
-              @click="addUnknownToDb(item)"
-              class="text-blue-600 hover:text-blue-800 text-xs font-bold px-2 py-1 bg-blue-50 rounded"
-            >
-              + В базу
-            </button>
+            <span class="truncate font-medium flex-1 pr-2">{{ item.original_text || item.name }}</span>
+            <div class="flex gap-1">
+                <button 
+                    @click="openSynonymSearch(item, idx)"
+                    class="text-amber-600 hover:text-amber-800 text-[10px] font-bold px-2 py-1 bg-amber-50 rounded"
+                >
+                    Синоним
+                </button>
+                <button 
+                    @click="addUnknownToDb(item)"
+                    class="text-blue-600 hover:text-blue-800 text-[10px] font-bold px-2 py-1 bg-blue-50 rounded"
+                >
+                    + В базу
+                </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Search/Select Modal for Syonyms -->
+    <ItemSearchModal 
+        :is-open="showSynonymSearch"
+        title="Привязать как синоним к..."
+        @close="showSynonymSearch = false"
+        @select="confirmSynonym"
+    />
+
+    <!-- Search/Select Modal for Quick Add -->
+    <ItemSearchModal 
+        :is-open="showQuickAdd"
+        title="Добавить в комнату..."
+        @close="showQuickAdd = false"
+        @select="addItemToRoom"
+    />
 
     <!-- Price Item Modal -->
     <PriceItemModal 
@@ -226,9 +259,10 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { useEstimateStore } from '@/stores/estimate'
 import { usePriceStore } from '@/stores/price'
-import { PhTrash, PhX } from '@phosphor-icons/vue'
+import { PhTrash, PhX, PhPlus } from '@phosphor-icons/vue'
 import VoiceRecorder from '@/components/input/VoiceRecorder.vue'
 import ItemAutocomplete from '@/components/input/ItemAutocomplete.vue'
+import ItemSearchModal from '@/components/input/ItemSearchModal.vue'
 import PriceItemModal from '@/views/price/PriceItemModal.vue'
 
 const mode = ref('voice')
@@ -243,6 +277,15 @@ const priceStore = usePriceStore()
 const unknownItems = ref([])
 const showModal = ref(false)
 const newItem = ref(null)
+
+// Synonym flow
+const showSynonymSearch = ref(false)
+const activeUnknownItem = ref(null)
+const activeUnknownIdx = ref(-1)
+
+// Quick Add flow
+const showQuickAdd = ref(false)
+const activeRoomIdx = ref(-1)
 
 // Watch for store changes to detect unknown items in parse result
 // Since estimateStore.parseTranscript returns the result, we can capture it there
@@ -338,6 +381,48 @@ const onItemSaved = async () => {
     // Optionally: auto-add to last room? Or let user re-scan?
     // Let's suggest user re-scan or manually add for now to avoid complexity.
     alert('Позиция добавлена в базу! Теперь вы можете добавить её в смету.')
+}
+
+const openSynonymSearch = (item, idx) => {
+    activeUnknownItem.value = item
+    activeUnknownIdx.value = idx
+    showSynonymSearch.value = true
+}
+
+const confirmSynonym = async (selectedItem) => {
+    const textToAdd = activeUnknownItem.value.original_text || activeUnknownItem.value.name
+    try {
+        await priceStore.addSynonym(selectedItem.id, textToAdd)
+        // Remove from unknown
+        if (activeUnknownIdx.value > -1) {
+            unknownItems.value.splice(activeUnknownIdx.value, 1)
+        }
+        showSynonymSearch.value = false
+        alert(`Текст "${textToAdd}" добавлен как синоним к "${selectedItem.name}"`)
+    } catch (e) {
+        alert('Ошибка при добавлении синонима: ' + e.message)
+    }
+}
+
+const openQuickAdd = (idx) => {
+    activeRoomIdx.value = idx
+    showQuickAdd.value = true
+}
+
+const addItemToRoom = (selectedItem) => {
+    const room = estimateStore.rooms[activeRoomIdx.value]
+    if (!room) return
+    
+    estimateStore.addItem({
+        room: room.name,
+        price_item_id: selectedItem.id,
+        name: selectedItem.name,
+        unit: selectedItem.unit,
+        quantity: 1, // Default
+        price: selectedItem.price
+    })
+    
+    showQuickAdd.value = false
 }
 
 // Initial load needed for categories

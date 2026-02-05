@@ -72,4 +72,25 @@ class PriceService:
         db.commit()
         return True
 
+    def add_synonym(self, db: Session, company_id: int, item_id: int, synonym: str) -> Optional[PriceItem]:
+        item = db.query(PriceItem).filter(
+            PriceItem.id == item_id,
+            PriceItem.company_id == company_id
+        ).first()
+        
+        if not item:
+            return None
+            
+        current_synonyms = [s.strip() for s in item.synonyms.split(',') if s.strip()]
+        new_synonym = synonym.strip()
+        
+        if new_synonym and new_synonym not in current_synonyms:
+            current_synonyms.append(new_synonym)
+            item.synonyms = ", ".join(current_synonyms)
+            db.add(item)
+            db.commit()
+            db.refresh(item)
+            
+        return item
+
 price_service = PriceService()

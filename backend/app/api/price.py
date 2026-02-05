@@ -96,3 +96,22 @@ def delete_item(
     # 204 No Content - must not return body
     from starlette.responses import Response
     return Response(status_code=204)
+@router.post("/items/{item_id}/add-synonym", response_model=PriceItemResponse)
+def add_synonym(
+    item_id: int,
+    synonym_in: dict, # Simple dict for brevity or create schema
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    if not current_user.company:
+        raise HTTPException(status_code=400, detail="User has no company")
+        
+    synonym = synonym_in.get("synonym")
+    if not synonym:
+        raise HTTPException(status_code=400, detail="Synonym is required")
+        
+    item = price_service.add_synonym(db, current_user.company.id, item_id, synonym)
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+        
+    return item

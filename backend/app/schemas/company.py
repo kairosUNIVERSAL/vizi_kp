@@ -6,10 +6,10 @@ class CompanyBase(BaseModel):
     name: Optional[str] = ""
     phone: Optional[str] = ""
     city: Optional[str] = ""
-    warranty_material: int = 15
-    warranty_work: int = 3
-    validity_days: int = 14
-    discount: Decimal = 5
+    warranty_material: Optional[int] = 15
+    warranty_work: Optional[int] = 3
+    validity_days: Optional[int] = 14
+    discount: Optional[Decimal] = Decimal(5)
     
     # Extended profile
     logo_path: Optional[str] = None

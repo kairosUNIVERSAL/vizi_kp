@@ -36,6 +36,13 @@ export const usePriceStore = defineStore('price', () => {
         items.value = items.value.filter(i => i.id !== id)
     }
 
+    const addSynonym = async (itemId, synonym) => {
+        const { data } = await api.post(`/price/items/${itemId}/add-synonym`, { synonym })
+        const index = items.value.findIndex(i => i.id === itemId)
+        if (index !== -1) items.value[index] = data
+        return data
+    }
+
     const fetchItems = async () => {
         loading.value = true
         try {
@@ -57,6 +64,7 @@ export const usePriceStore = defineStore('price', () => {
         fetchItems,
         createItem,
         updateItem,
-        deleteItem
+        deleteItem,
+        addSynonym
     }
 })

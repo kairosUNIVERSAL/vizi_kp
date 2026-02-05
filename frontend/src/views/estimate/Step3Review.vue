@@ -31,45 +31,51 @@
                     <span>{{ formatPrice(room.subtotal) }} ₽</span>
                 </div>
                 
-                <div class="space-y-3">
-                    <div v-for="(item, iIdx) in room.items" :key="iIdx" class="flex justify-between items-center text-sm">
-                        <div class="flex-1">
-                            <div class="font-medium">{{ item.name }}</div>
-                            <div class="text-gray-500 text-xs">{{ formatPrice(item.price) }} / {{ item.unit }}</div>
-                        </div>
-                        
-                        <div class="flex items-center gap-4">
-                            <!-- Quantity Controls -->
-                            <div class="flex items-center border rounded overflow-hidden">
-                                <button 
-                                    @click="updateQuantity(rIdx, iIdx, -1)"
-                                    class="px-2 py-1 bg-gray-50 hover:bg-gray-100 border-r"
-                                >
-                                    <PhMinus :size="12" />
-                                </button>
-                                <input 
-                                    v-model.number="item.quantity" 
-                                    type="number" 
-                                    class="w-12 text-center text-xs focus:ring-0 border-0"
-                                    @change="estimateStore.recalculate()"
-                                />
-                                <button 
-                                    @click="updateQuantity(rIdx, iIdx, 1)"
-                                    class="px-2 py-1 bg-gray-50 hover:bg-gray-100 border-l"
-                                >
-                                    <PhPlus :size="12" />
-                                </button>
+                <div class="space-y-4">
+                    <div v-for="(item, iIdx) in room.items" :key="iIdx" class="py-2 border-b border-gray-50 last:border-0">
+                        <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <!-- Name and Base Price -->
+                            <div class="flex-1 min-w-0">
+                                <div class="font-medium text-gray-900 leading-tight">{{ item.name }}</div>
+                                <div class="text-gray-400 text-[10px] mt-0.5">
+                                    {{ formatPrice(item.price) }} / {{ item.unit }}
+                                </div>
                             </div>
                             
-                            <!-- Sum -->
-                            <div class="w-24 text-right font-medium">
-                                {{ formatPrice(item.price * item.quantity) }} ₽
+                            <!-- Controls and Subtotal -->
+                            <div class="flex items-center justify-between sm:justify-end gap-4 mt-1 sm:mt-0">
+                                <!-- Quantity Controls -->
+                                <div class="flex items-center border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
+                                    <button 
+                                        @click="updateQuantity(rIdx, iIdx, -1)"
+                                        class="px-2 py-1.5 hover:bg-gray-200 border-r border-gray-200 transition-colors"
+                                    >
+                                        <PhMinus :size="10" weight="bold" />
+                                    </button>
+                                    <input 
+                                        v-model.number="item.quantity" 
+                                        type="number" 
+                                        class="w-10 text-center text-xs font-bold focus:ring-0 border-0 bg-transparent"
+                                        @change="estimateStore.recalculate()"
+                                    />
+                                    <button 
+                                        @click="updateQuantity(rIdx, iIdx, 1)"
+                                        class="px-2 py-1.5 hover:bg-gray-200 border-l border-gray-200 transition-colors"
+                                    >
+                                        <PhPlus :size="10" weight="bold" />
+                                    </button>
+                                </div>
+                                
+                                <!-- Sum -->
+                                <div class="w-20 text-right font-bold text-gray-800">
+                                    {{ formatPrice(item.price * item.quantity) }} ₽
+                                </div>
+                                
+                                <!-- Delete -->
+                                <button @click="removeItem(rIdx, iIdx)" class="p-1 text-gray-300 hover:text-red-500 transition-colors">
+                                    <PhX :size="18" />
+                                </button>
                             </div>
-                            
-                            <!-- Delete -->
-                            <button @click="removeItem(rIdx, iIdx)" class="text-red-400 hover:text-red-600">
-                                <PhX :size="16" />
-                            </button>
                         </div>
                     </div>
                 </div>

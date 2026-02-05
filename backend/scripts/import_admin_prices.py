@@ -15,31 +15,37 @@ from scripts.import_prices_manual import import_all
 def run_import():
     db = SessionLocal()
     try:
-        # Find the first admin user
-        admin = db.query(User).filter(User.is_admin == True).first()
+        # Find the admin user (prefer 'admin@example.com' or just any admin)
+        admin = db.query(User).filter(User.is_admin == True).order_by(User.id.asc()).first()
         if not admin:
             print("Error: No admin user found. Create one first.")
             return
         
         if not admin.company:
-            print("Error: Admin user has no associated company.")
-            return
+            # Create company if missing
+            from app.models import Company
+            admin.company = Company(user_id=admin.id)
+            db.add(admin.company)
+            db.commit()
+            db.refresh(admin)
 
         print(f"Found admin: {admin.email} (Company ID: {admin.company.id})")
+        print("Starting price import (upsert mode)...")
         
-        # Clear existing items for this company to avoid "skipped" if they exist
-        db.query(PriceItem).filter(PriceItem.company_id == admin.company.id).delete()
-        db.commit()
-        
-        print("Starting clean price import...")
-        # Reuse import logic
+        # We don't delete to avoid Foreign Key violations. 
+        # import_all from scripts.import_prices_manual will skip if exists.
+        # But we want to ensure they are there.
         import_all(admin.company.id)
-
         
-        print("\nAdmin price list updated successfully!")
+        # Verify count
+        count = db.query(PriceItem).filter(PriceItem.company_id == admin.company.id).count()
+        print(f"Total items for company {admin.company.id}: {count}")
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"An error occurred: {e}")
+
     finally:
         db.close()
 

@@ -273,7 +273,15 @@ def import_all(company_id: int = DEFAULT_COMPANY_ID):
             ).first()
             
             if existing:
-                print(f"  Skipped (exists): {name}")
+                # Update existing item to ensure it's correct and active
+                existing.price = price
+                existing.unit = unit
+                existing.synonyms = synonyms
+                existing.is_active = True
+                existing.category_id = category_map[cat_slug]
+                db.add(existing)
+                db.commit()
+                print(f"  Updated: {name}")
                 skipped += 1
                 continue
             

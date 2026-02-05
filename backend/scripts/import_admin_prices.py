@@ -9,7 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from sqlalchemy.orm import Session
 from app.database import SessionLocal
-from app.models import User
+from app.models import User, PriceItem
 from scripts.import_prices_manual import import_all
 
 def run_import():

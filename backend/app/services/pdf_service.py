@@ -3,7 +3,7 @@ from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import cm
@@ -55,10 +55,18 @@ class PDFService:
         self.styles.add(ParagraphStyle(
             name='RussianTitle',
             fontName=FONT_BOLD,
-            fontSize=18,
-            leading=22,
+            fontSize=16,
+            leading=20,
             alignment=1,
-            spaceAfter=20
+            spaceAfter=15,
+            textColor=colors.HexColor('#1e40af') # Dark blue
+        ))
+        self.styles.add(ParagraphStyle(
+            name='RussianHeader',
+            fontName=FONT_BOLD,
+            fontSize=12,
+            leading=14,
+            spaceAfter=10
         ))
         self.styles.add(ParagraphStyle(
             name='RussianBody',
@@ -89,32 +97,87 @@ class PDFService:
         )
         elements = []
 
-        # 1. Шапка компании
-        company_name = company.name if company.name else "Коммерческое предложение"
-        elements.append(Paragraph(company_name, self.styles['RussianTitle']))
+        # 1. Заголовок и Логотип
+        header_data = []
+        company_details = []
         
-        company_info = []
-        if company.phone:
-            company_info.append(f"Тел: {company.phone}")
-        if company.city:
-            company_info.append(f"Город: {company.city}")
+        # Логотип (если есть)
+        logo = None
+        if company.logo_path and os.path.exists(company.logo_path):
+            try:
+                logo = Image(company.logo_path)
+                # Масштабирование логотипа (макс. ширина 4см, макс. высота 2см)
+                aspect = logo.imageWidth / logo.imageHeight
+                logo.drawHeight = 2.0*cm
+                logo.drawWidth = 2.0*cm * aspect
+                if logo.drawWidth > 5.0*cm: # Если слишком широкий
+                    logo.drawWidth = 5.0*cm
+                    logo.drawHeight = 5.0*cm / aspect
+            except Exception as e:
+                logger.error(f"Error loading logo: {e}")
+                logo = None
+
+        # Формирование информации о компании
+        company_address = company.address or company.city or ""
+        company_phone = company.phone or ""
+        company_email = company.user.email if (company.user and hasattr(company.user, 'email')) else ""
         
-        date_str = estimate.created_at.strftime('%d.%m.%Y') if estimate.created_at else datetime.now().strftime('%d.%m.%Y')
-        company_info.append(f"Дата: {date_str}")
+        company_info_text = f"<b>{company.name or 'Ceiling KP'}</b><br/>"
+        if company_address:
+            company_info_text += f"{company_address}<br/>"
+        if company_phone:
+            company_info_text += f"Тел: {company_phone}<br/>"
+        if company_email:
+            company_info_text += f"Email: {company_email}<br/>"
+        if company.website:
+            company_info_text += f"Сайт: {company.website}<br/>"
+            
+        # Мессенджеры
+        if company.messenger_contact:
+            m_type = company.messenger_type.capitalize() if company.messenger_type else "Contact"
+            company_info_text += f"{m_type}: {company.messenger_contact}"
+
+        info_paragraph = Paragraph(company_info_text, self.styles['RussianBody'])
         
-        for info in company_info:
-            elements.append(Paragraph(info, self.styles['RussianSmall']))
-        
+        # Таблица для шапки
+        if logo:
+            header_table_data = [[logo, info_paragraph]]
+            header_table = Table(header_table_data, colWidths=[6*cm, 11*cm])
+        else:
+            header_table_data = [[info_paragraph]]
+            header_table = Table(header_table_data, colWidths=[17*cm])
+            
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('ALIGN', (0,0), (0,0), 'LEFT'),
+            ('ALIGN', (1,0), (1,0), 'LEFT'),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 0.5*cm),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 0.5*cm))
+
+        # Заголовок документа
+        elements.append(Paragraph("КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ", self.styles['RussianTitle']))
         elements.append(Spacer(1, 0.5*cm))
 
         # 2. Данные клиента
-        elements.append(Paragraph("Заказчик:", self.styles['RussianBold']))
-        elements.append(Paragraph(f"ФИО: {estimate.client_name or '-'}", self.styles['RussianBody']))
-        if estimate.client_phone:
-            elements.append(Paragraph(f"Телефон: {estimate.client_phone}", self.styles['RussianBody']))
-        if estimate.client_address:
-            elements.append(Paragraph(f"Адрес: {estimate.client_address}", self.styles['RussianBody']))
-        
+        client_data = [
+            [Paragraph("<b>Заказчик:</b>", self.styles['RussianBody']), 
+             Paragraph(estimate.client_name or "-", self.styles['RussianBody'])],
+            [Paragraph("<b>Телефон:</b>", self.styles['RussianBody']), 
+             Paragraph(estimate.client_phone or "-", self.styles['RussianBody'])],
+            [Paragraph("<b>Адрес:</b>", self.styles['RussianBody']), 
+             Paragraph(estimate.client_address or "-", self.styles['RussianBody'])],
+            [Paragraph("<b>Дата:</b>", self.styles['RussianBody']), 
+             Paragraph(estimate.created_at.strftime('%d.%m.%Y') if estimate.created_at else datetime.now().strftime('%d.%m.%Y'), self.styles['RussianBody'])]
+        ]
+        client_table = Table(client_data, colWidths=[3*cm, 14*cm])
+        client_table.setStyle(TableStyle([
+            ('GRID', (0,0), (-1,-1), 0.5, colors.white), # Невидимая сетка для отступов
+            ('LEFTPADDING', (0,0), (-1,-1), 0),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ]))
+        elements.append(client_table)
         elements.append(Spacer(1, 1*cm))
 
         # 3. Таблицы по комнатам
@@ -153,8 +216,8 @@ class PDFService:
 
                     table = Table(data, colWidths=[8*cm, 2*cm, 1.5*cm, 2.5*cm, 3*cm])
                     table.setStyle(TableStyle([
-                        ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-                        ('TEXTCOLOR', (0,0), (-1,0), colors.black),
+                        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1e40af')), # Dark blue
+                        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
                         ('ALIGN', (0,0), (-1,-1), 'LEFT'),
                         ('ALIGN', (1,0), (-1,-1), 'RIGHT'),
                         ('FONTNAME', (0,0), (-1,-1), FONT_NAME),
@@ -162,9 +225,9 @@ class PDFService:
                         ('FONTNAME', (0,-1), (-1,-1), FONT_BOLD),
                         ('FONTSIZE', (0,0), (-1,-1), 9),
                         ('BOTTOMPADDING', (0,0), (-1,0), 8),
-                        ('BACKGROUND', (0,-1), (-1,-1), colors.whitesmoke),
-                        ('GRID', (0,0), (-1,-2), 0.5, colors.grey),
-                        ('LINEBELOW', (0,-1), (-1,-1), 1, colors.black),
+                        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f8fafc')),
+                        ('GRID', (0,0), (-1,-2), 0.5, colors.HexColor('#cbd5e1')), # Light grey border
+                        ('LINEBELOW', (0,-1), (-1,-1), 1, colors.HexColor('#1e40af')),
                     ]))
                     elements.append(table)
                 else:
@@ -177,38 +240,58 @@ class PDFService:
         # 4. Итого
         total_sum = float(estimate.total_sum) if estimate.total_sum else 0
         summary_data = [
-            [Paragraph(f"<b>ОБЩАЯ СУММА: {total_sum:,.0f} руб.</b>".replace(',', ' '), self.styles['RussianTitle'])]
+            [Paragraph(f"<b>ОБЩАЯ СУММА К ОПЛАТЕ: {total_sum:,.0f} руб.</b>".replace(',', ' '), self.styles['RussianTitle'])]
         ]
         summary_table = Table(summary_data, colWidths=[17*cm])
         summary_table.setStyle(TableStyle([
             ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
-            ('BACKGROUND', (0,0), (-1,-1), colors.lightyellow),
-            ('BOX', (0,0), (-1,-1), 1, colors.black),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')), # Very light blue/grey
+            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#1e40af')), # Dark blue border
             ('TOPPADDING', (0,0), (-1,-1), 10),
             ('BOTTOMPADDING', (0,0), (-1,-1), 10),
         ]))
         elements.append(summary_table)
+        elements.append(Spacer(1, 0.5*cm))
         elements.append(Spacer(1, 1*cm))
 
-        # 5. Блок гарантий
+        # 5. Блок гарантий и реквизитов
+        bottom_elements = []
+        
+        # Гарантии
         warranty_material = company.warranty_material if company.warranty_material else 15
         warranty_work = company.warranty_work if company.warranty_work else 3
         validity_days = company.validity_days if company.validity_days else 14
         discount = float(company.discount) if company.discount else 5
         
-        elements.append(Paragraph("Гарантийные обязательства:", self.styles['RussianBold']))
-        elements.append(Paragraph(f"- Гарантия на полотно и материалы: {warranty_material} лет", self.styles['RussianBody']))
-        elements.append(Paragraph(f"- Гарантия на монтажные работы: {warranty_work} лет", self.styles['RussianBody']))
-        elements.append(Paragraph(f"- Срок действия предложения: {validity_days} дней", self.styles['RussianBody']))
-        
-        elements.append(Spacer(1, 0.5*cm))
-        
-        elements.append(Paragraph(
+        bottom_elements.append(Paragraph("Гарантийные обязательства:", self.styles['RussianBold']))
+        bottom_elements.append(Paragraph(f"- Гарантия на полотно и материалы: {warranty_material} лет", self.styles['RussianBody']))
+        bottom_elements.append(Paragraph(f"- Гарантия на монтажные работы: {warranty_work} лет", self.styles['RussianBody']))
+        bottom_elements.append(Paragraph(f"- Срок действия предложения: {validity_days} дней", self.styles['RussianBody']))
+        bottom_elements.append(Spacer(1, 0.3*cm))
+        bottom_elements.append(Paragraph(
             f"<b>При заключении договора в день замера — дополнительная скидка {discount:.0f}%!</b>",
             self.styles['RussianBold']
         ))
+        
+        # Реквизиты
+        if any([company.inn, company.bank_name, company.bank_account]):
+            bottom_elements.append(Spacer(1, 0.5*cm))
+            bottom_elements.append(Paragraph("РЕКВИЗИТЫ ДЛЯ ОПЛАТЫ:", self.styles['RussianBold']))
+            
+            pay_text = ""
+            if company.inn: pay_text += f"ИНН: {company.inn} "
+            if company.kpp: pay_text += f" КПП: {company.kpp}"
+            if pay_text: pay_text += "<br/>"
+            
+            if company.bank_name: pay_text += f"Банк: {company.bank_name}<br/>"
+            if company.bank_bik: pay_text += f"БИК: {company.bank_bik} "
+            if company.bank_corr: pay_text += f" Корр.счет: {company.bank_corr}<br/>"
+            if company.bank_account: pay_text += f"Расчетный счет: {company.bank_account}"
+            
+            bottom_elements.append(Paragraph(pay_text, self.styles['RussianSmall']))
 
-        elements.append(Spacer(1, 2*cm))
+        elements.append(KeepTogether(bottom_elements))
+        elements.append(Spacer(1, 1.5*cm))
 
         # 6. Подписи
         sig_data = [

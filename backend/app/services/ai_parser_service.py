@@ -233,7 +233,7 @@ class AIParserService:
 ЗАДАЧА:
 1. Извлеки все упомянутые комнаты и позиции
 2. Сопоставь каждую позицию с прайс-листом по названию или синонимам
-3. Если позиция НЕ найдена в прайс-листе — добавь в unknown_items
+3. ВАЖНО: Если позиция упомянута, но НЕ найдена в прайс-листе — ОБЯЗАТЕЛЬНО добавь её в unknown_items с полем original_text
 
 ФОРМАТ ОТВЕТА (строго JSON):
 {{
@@ -252,8 +252,13 @@ class AIParserService:
       ]
     }}
   ],
-  "unknown_items": []
+  "unknown_items": [
+    {{ "original_text": "Название ненайденной позиции" }}
+  ]
 }}
+
+ПРИМЕР: Если упомянуто "полотно бауф" но в прайсе нет такой позиции, добавь:
+"unknown_items": [{{"original_text": "полотно бауф"}}]
 """
 
     def _parse_response(self, response_text: str, price_items: List[PriceItem]) -> Dict[str, Any]:

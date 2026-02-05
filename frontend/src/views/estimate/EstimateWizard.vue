@@ -2,7 +2,16 @@
   <div class="mobile-container safe-area-pt">
     <!-- Mobile Header -->
     <div class="mb-4 md:mb-8">
-      <h1 class="text-xl md:text-3xl font-bold mb-3">Создание сметы</h1>
+      <div class="flex justify-between items-center mb-3">
+        <h1 class="text-xl md:text-3xl font-bold">Создание сметы</h1>
+        <router-link 
+          :to="{name: 'dashboard'}" 
+          class="flex items-center gap-2 text-gray-500 hover:text-blue-600 transition-colors px-3 py-2 rounded-lg hover:bg-gray-100"
+        >
+          <PhHouse :size="20" />
+          <span class="hidden sm:inline text-sm">На главную</span>
+        </router-link>
+      </div>
       
       <!-- Mobile Stepper -->
       <div class="stepper hide-scrollbar">
@@ -37,6 +46,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { PhHouse } from '@phosphor-icons/vue'
 import Step1Client from './Step1Client.vue'
 import Step2Input from './Step2Input.vue'
 import Step3Review from './Step3Review.vue' 

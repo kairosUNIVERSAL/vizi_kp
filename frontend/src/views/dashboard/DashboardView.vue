@@ -36,6 +36,22 @@
         </div>
     </div>
 
+    <!-- Quick Actions Row -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <!-- Price List Card -->
+        <router-link :to="{name: 'prices'}" class="block group">
+            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-4">
+                <div class="bg-emerald-100 p-3 rounded-lg text-emerald-600 group-hover:scale-110 transition-transform">
+                   <PhListBullets :size="28" />
+                </div>
+                <div>
+                  <h3 class="font-bold text-gray-900">Прайс-лист</h3>
+                  <p class="text-xs text-gray-500">Редактировать цены и позиции</p>
+                </div>
+            </div>
+        </router-link>
+    </div>
+
     <!-- Recent Estimates Table -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
@@ -108,6 +124,7 @@
 import { onMounted, ref, computed } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useEstimateStore } from '@/stores/estimate'
+import { PhPlusCircle, PhSignOut, PhCircleNotch, PhFileText, PhArrowRight, PhListBullets } from '@phosphor-icons/vue'
 
 const authStore = useAuthStore()
 const estimateStore = useEstimateStore()

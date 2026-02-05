@@ -86,11 +86,13 @@ def delete_item(
     item_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
-) -> Any:
+):
     if not current_user.company:
         raise HTTPException(status_code=400, detail="User has no company")
         
     success = price_service.delete_item(db, current_user.company.id, item_id)
     if not success:
         raise HTTPException(status_code=404, detail="Item not found")
-    return None
+    # 204 No Content - must not return body
+    from starlette.responses import Response
+    return Response(status_code=204)

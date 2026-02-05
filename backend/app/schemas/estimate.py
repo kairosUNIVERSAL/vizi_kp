@@ -80,7 +80,9 @@ class EstimateResponse(EstimateBase):
 
 # AI Parsing Types
 class UnknownItem(BaseModel):
-    original_text: str
+    original_text: Optional[str] = None  # May be missing in some AI responses
+    name: Optional[str] = None  # AI sometimes returns 'name' instead
+    quantity: Optional[Decimal] = None
     suggested_quantity: Optional[Decimal] = None
     suggested_unit: Optional[str] = None
     suggested_category_id: Optional[int] = None

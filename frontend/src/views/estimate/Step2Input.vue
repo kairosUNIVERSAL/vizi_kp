@@ -166,9 +166,11 @@
             <!-- Quick Add Button -->
             <button 
                 @click="openQuickAdd(idx)"
-                class="w-full mt-3 py-2 border-2 border-dashed border-gray-200 rounded-xl text-xs font-bold text-gray-400 hover:border-blue-200 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+                class="w-full mt-4 py-2.5 border-2 border-dashed border-blue-200 rounded-xl text-xs font-bold text-blue-500 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center justify-center gap-2"
             >
-                <PhPlus :size="14" />
+                <div class="bg-blue-500 text-white rounded-full p-0.5">
+                  <PhPlus :size="12" weight="bold" />
+                </div>
                 Добавить позицию
             </button>
           </div>

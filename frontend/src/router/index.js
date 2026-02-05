@@ -23,6 +23,11 @@ const routes = [
         path: '/estimate/new',
         name: 'estimate-new',
         component: () => import('@/views/estimate/EstimateWizard.vue'),
+    },
+    {
+        path: '/prices',
+        name: 'prices',
+        component: () => import('@/views/price/PriceListView.vue'),
     }
 ]
 

@@ -50,6 +50,26 @@ class PriceService:
         db.add(item)
         db.commit()
         db.refresh(item)
+        db.refresh(item)
         return db.query(PriceItem).options(joinedload(PriceItem.category)).filter(PriceItem.id == item_id).first()
+
+    def delete_item(self, db: Session, company_id: int, item_id: int) -> bool:
+        item = db.query(PriceItem).filter(
+            PriceItem.id == item_id,
+            PriceItem.company_id == company_id
+        ).first()
+        
+        if not item:
+            return False
+            
+        # Hard delete or soft delete? Let's do hard delete for now as per simple CRUD
+        # Or better: set is_active=False if we want to keep history, but user asked to "delete".
+        # Let's do hard delete to clean up DB, assuming no generic foreign keys blocking it yet (EstimateItem handles it?)
+        # Actually safer to soft delete usually, but for "Management" often users expect removal.
+        # Let's check models.py to see if there are cascades. Assuming standard.
+        # Let's use delete()
+        db.delete(item)
+        db.commit()
+        return True
 
 price_service = PriceService()

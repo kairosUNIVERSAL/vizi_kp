@@ -180,15 +180,56 @@
         Далее →
       </button>
     </div>
+
+    <!-- Unknown Items Modal / Notification -->
+    <div v-if="unknownItems.length > 0" class="fixed bottom-20 right-4 left-4 md:left-auto md:w-96 z-40">
+      <div class="bg-yellow-50 border border-yellow-200 rounded-xl shadow-lg p-4 animate-slide-up">
+        <div class="flex justify-between items-start mb-2">
+           <h3 class="font-bold text-yellow-800 flex items-center gap-2">
+             <span>⚠️</span> Ненайденные позиции ({{ unknownItems.length }})
+           </h3>
+           <button @click="clearUnknown" class="text-yellow-600 hover:text-yellow-800"><PhX /></button>
+        </div>
+        <p class="text-xs text-yellow-700 mb-3">
+          AI не нашел эти товары в базе. Добавьте их, чтобы использовать в смете.
+        </p>
+        <div class="space-y-2 max-h-48 overflow-y-auto">
+          <div 
+            v-for="(item, idx) in unknownItems" 
+            :key="idx" 
+            class="bg-white p-2 rounded border border-yellow-100 flex justify-between items-center text-sm"
+          >
+            <span class="truncate font-medium">{{ item.original_text || item.name }}</span>
+            <button 
+              @click="addUnknownToDb(item)"
+              class="text-blue-600 hover:text-blue-800 text-xs font-bold px-2 py-1 bg-blue-50 rounded"
+            >
+              + В базу
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Price Item Modal -->
+    <PriceItemModal 
+      :is-open="showModal"
+      :item="newItem"
+      :categories="priceStore.categories"
+      @close="showModal = false"
+      @saved="onItemSaved"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, watch } from 'vue'
 import { useEstimateStore } from '@/stores/estimate'
+import { usePriceStore } from '@/stores/price'
 import { PhTrash, PhX } from '@phosphor-icons/vue'
 import VoiceRecorder from '@/components/input/VoiceRecorder.vue'
 import ItemAutocomplete from '@/components/input/ItemAutocomplete.vue'
+import PriceItemModal from '@/views/price/PriceItemModal.vue'
 
 const mode = ref('voice')
 const transcript = ref('')
@@ -196,12 +237,19 @@ const manualText = ref('')
 const processing = ref(false)
 const expandedRooms = reactive(new Set([0])) // First room expanded by default
 const estimateStore = useEstimateStore()
+const priceStore = usePriceStore()
+
+// Unknown items handling
+const unknownItems = ref([])
+const showModal = ref(false)
+const newItem = ref(null)
+
+// Watch for store changes to detect unknown items in parse result
+// Since estimateStore.parseTranscript returns the result, we can capture it there
+// But we need to update processTranscript/processManualText
 
 const removeItem = (rIdx, iIdx) => {
     estimateStore.rooms[rIdx].items.splice(iIdx, 1)
-    if (estimateStore.rooms[rIdx].items.length === 0) {
-        // Optional: remove room if empty?
-    }
     estimateStore.recalculate()
 }
 
@@ -221,12 +269,21 @@ const toggleRoom = (idx) => {
   }
 }
 
+const handleParseResult = (result) => {
+    console.log("Parse result:", result)
+    if (result.unknown_items && result.unknown_items.length > 0) {
+        // Merge with existing
+        unknownItems.value = [...unknownItems.value, ...result.unknown_items]
+    }
+}
+
 const processTranscript = async () => {
   if (!transcript.value) return
   
   processing.value = true
   try {
-    await estimateStore.parseTranscript(transcript.value)
+    const result = await estimateStore.parseTranscript(transcript.value)
+    handleParseResult(result)
     transcript.value = ''
   } catch (e) {
     alert('Ошибка распознавания: ' + e.message)
@@ -240,7 +297,8 @@ const processManualText = async () => {
   
   processing.value = true
   try {
-    await estimateStore.parseTranscript(manualText.value)
+    const result = await estimateStore.parseTranscript(manualText.value)
+    handleParseResult(result)
     manualText.value = ''
   } catch (e) {
     alert('Ошибка распознавания: ' + e.message)
@@ -249,7 +307,53 @@ const processManualText = async () => {
   }
 }
 
+const clearUnknown = () => {
+    unknownItems.value = []
+}
+
+const addUnknownToDb = (item) => {
+    // Pre-fill modal
+    newItem.value = {
+        name: item.original_text || item.name,
+        synonyms: item.original_text || item.name, // Good for future matching
+        price: 0,
+        unit: 'шт',
+        is_active: true
+    }
+    showModal.value = true
+}
+
+const onItemSaved = async () => {
+    // Refresh items
+    await priceStore.fetchItems()
+    
+    // Remove from unknown list (by name estimation)
+    if (newItem.value && newItem.value.name) {
+        unknownItems.value = unknownItems.value.filter(i => {
+           const text = i.original_text || i.name
+           return text !== newItem.value.name && text !== newItem.value.synonyms
+        })
+    }
+    
+    // Optionally: auto-add to last room? Or let user re-scan?
+    // Let's suggest user re-scan or manually add for now to avoid complexity.
+    alert('Позиция добавлена в базу! Теперь вы можете добавить её в смету.')
+}
+
+// Initial load needed for categories
+priceStore.fetchCategories()
+
 const formatPrice = (val) => new Intl.NumberFormat('ru-RU').format(val || 0)
 
 defineEmits(['next', 'prev'])
 </script>
+
+<style scoped>
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out;
+}
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+</style>

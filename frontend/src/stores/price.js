@@ -18,10 +18,28 @@ export const usePriceStore = defineStore('price', () => {
         }
     }
 
+    const createItem = async (itemData) => {
+        const { data } = await api.post('/price/items', itemData)
+        items.value.push(data)
+        return data
+    }
+
+    const updateItem = async (id, itemData) => {
+        const { data } = await api.put(`/price/items/${id}`, itemData)
+        const index = items.value.findIndex(i => i.id === id)
+        if (index !== -1) items.value[index] = data
+        return data
+    }
+
+    const deleteItem = async (id) => {
+        await api.delete(`/price/items/${id}`)
+        items.value = items.value.filter(i => i.id !== id)
+    }
+
     const fetchItems = async () => {
         loading.value = true
         try {
-            const { data } = await api.get('/price/items')
+            const { data } = await api.get('/price/items?active_only=false') // Fetch all for management
             items.value = data.items
         } catch (e) {
             console.error(e)
@@ -36,6 +54,9 @@ export const usePriceStore = defineStore('price', () => {
         activeItems,
         loading,
         fetchCategories,
-        fetchItems
+        fetchItems,
+        createItem,
+        updateItem,
+        deleteItem
     }
 })

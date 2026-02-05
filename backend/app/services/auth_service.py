@@ -8,9 +8,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 class AuthService:
-    def register_user(self, db: Session, user_in: UserRegister):
+    def create_user(self, db: Session, email: str, password: str, is_admin: bool = False):
+        """Internal method to create user without schema dependency"""
         # Check if email exists
-        if db.query(User).filter(User.email == user_in.email).first():
+        if db.query(User).filter(User.email == email).first():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Email already registered"
@@ -18,9 +19,10 @@ class AuthService:
         
         # Create user
         user = User(
-            email=user_in.email,
-            password_hash=get_password_hash(user_in.password),
-            is_active=True
+            email=email,
+            password_hash=get_password_hash(password),
+            is_active=True,
+            is_admin=is_admin
         )
         db.add(user)
         db.commit()
@@ -32,6 +34,10 @@ class AuthService:
         db.commit()
         
         return user
+
+    def register_user(self, db: Session, user_in: UserRegister):
+        return self.create_user(db, user_in.email, user_in.password, is_admin=False)
+
 
     def authenticate_user(self, db: Session, email: str, password: str):
         user = db.query(User).filter(User.email == email).first()

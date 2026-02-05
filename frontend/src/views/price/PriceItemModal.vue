@@ -106,6 +106,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { usePriceStore } from '@/stores/price'
+import { PhX } from '@phosphor-icons/vue'
 
 const props = defineProps({
   isOpen: Boolean,

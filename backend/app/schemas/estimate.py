@@ -2,14 +2,7 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 from datetime import datetime
-from enum import Enum
-
-class EstimateStatus(str, Enum):
-    DRAFT = "draft"
-    COMPLETED = "completed"
-    SENT = "sent"
-    ACCEPTED = "accepted"
-    REJECTED = "rejected"
+from app.models.estimate import EstimateStatus
 
 # Estimate Item
 class EstimateItemBase(BaseModel):
@@ -71,11 +64,10 @@ class EstimateUpdate(BaseModel):
 class EstimateResponse(EstimateBase):
     id: int
     company_id: int
-    estimate_date: datetime
+    estimate_date: Optional[datetime] = None
     total_area: Decimal
     total_sum: Decimal
-    last_step: Optional[int] = 1
-    created_at: datetime
+    created_at: Optional[datetime] = None
     rooms: List[EstimateRoomResponse] = []
 
     class Config:

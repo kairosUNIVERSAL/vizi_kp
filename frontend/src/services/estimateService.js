@@ -6,6 +6,11 @@ export default {
         return response.data
     },
 
+    async updateEstimate(id, data) {
+        const response = await api.put(`/estimates/${id}`, data)
+        return response.data
+    },
+
     async getEstimate(id) {
         const response = await api.get(`/estimates/${id}`)
         return response.data

@@ -6,7 +6,7 @@ from app.api.deps import get_current_active_user
 from app.database import get_db
 from app.services import estimate_service, ai_parser_service
 from app.schemas.estimate import (
-    EstimateCreate, EstimateResponse, EstimateParseResponse
+    EstimateCreate, EstimateUpdate, EstimateResponse, EstimateParseResponse
 )
 from app.models import User
 
@@ -55,6 +55,23 @@ def parse_transcript(
          raise HTTPException(status_code=400, detail="User has no company")
          
     return ai_parser_service.parse_transcript(db, current_user.company.id, transcript, user=current_user)
+
+@router.put("/{estimate_id}", response_model=EstimateResponse)
+def update_estimate(
+    estimate_id: int,
+    estimate_in: EstimateUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    """Update an existing estimate (edit or save draft)."""
+    estimate = estimate_service.get_estimate(db, estimate_id)
+    if not estimate:
+        raise HTTPException(status_code=404, detail="Estimate not found")
+    if estimate.company_id != current_user.company.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    updated = estimate_service.update_estimate(db, estimate_id, estimate_in)
+    return updated
 
 @router.delete("/{estimate_id}", status_code=204)
 def delete_estimate(

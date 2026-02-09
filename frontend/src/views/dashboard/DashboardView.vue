@@ -2,18 +2,18 @@
   <div class="p-8 max-w-7xl mx-auto space-y-8">
     <div class="flex justify-between items-center">
       <h1 class="text-3xl font-bold">Панель управления</h1>
-      <div class="flex gap-4 items-center">
-        <span class="text-gray-600 font-medium">{{ authStore.user?.email }}</span>
-        <button @click="authStore.logout()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center gap-2">
-           <PhSignOut :size="20" />
-           Выйти
-        </button>
-      </div>
+      <router-link 
+        :to="{name: 'account'}" 
+        class="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+      >
+        <PhUser :size="20" />
+        <span class="text-sm font-medium text-gray-700">{{ authStore.user?.email }}</span>
+      </router-link>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <!-- New Estimate Card -->
-        <router-link :to="{name: 'estimate-new'}" class="block group lg:col-span-2">
+        <div class="block group lg:col-span-2 cursor-pointer" @click="createNewEstimate">
             <div class="h-full bg-blue-600 text-white p-8 rounded-xl shadow-lg hover:bg-blue-700 transition-all flex flex-col items-center justify-center text-center transform hover:-translate-y-1">
                 <div class="text-5xl mb-4 group-hover:scale-110 transition-transform">
                    <PhPlusCircle :size="64" weight="fill" />
@@ -21,7 +21,7 @@
                 <h2 class="text-2xl font-bold mb-2">Новая смета</h2>
                 <p class="text-blue-100 italic">Надиктуйте или введите вручную</p>
             </div>
-        </router-link>
+        </div>
         
         <!-- Stats Card 1 -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col justify-center">
@@ -36,52 +36,10 @@
         </div>
     </div>
 
-    <!-- Quick Actions Row -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <!-- Price List Card -->
-        <router-link :to="{name: 'prices'}" class="block group">
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-4">
-                <div class="bg-emerald-100 p-3 rounded-lg text-emerald-600 group-hover:scale-110 transition-transform">
-                   <PhListBullets :size="28" />
-                </div>
-                <div>
-                  <h3 class="font-bold text-gray-900">Прайс-лист</h3>
-                  <p class="text-xs text-gray-500">Редактировать цены и позиции</p>
-                </div>
-            </div>
-        </router-link>
-
-        <!-- Profile Card -->
-        <router-link :to="{name: 'profile'}" class="block group">
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-4">
-                <div class="bg-purple-100 p-3 rounded-lg text-purple-600 group-hover:scale-110 transition-transform">
-                   <PhUserGear :size="28" />
-                </div>
-                <div>
-                  <h3 class="font-bold text-gray-900">Профиль</h3>
-                  <p class="text-xs text-gray-500">Настройки компании и PDF</p>
-                </div>
-            </div>
-        </router-link>
-
-        <!-- Admin Card (only for admins) -->
-        <router-link v-if="authStore.user?.is_admin" :to="{name: 'admin'}" class="block group">
-            <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-100 hover:border-blue-300 hover:shadow-md transition-all flex items-center gap-4">
-                <div class="bg-orange-100 p-3 rounded-lg text-orange-600 group-hover:scale-110 transition-transform">
-                   <PhShieldCheck :size="28" />
-                </div>
-                <div>
-                  <h3 class="font-bold text-gray-900">Администрирование</h3>
-                  <p class="text-xs text-gray-500">Пользователи и статистика</p>
-                </div>
-            </div>
-        </router-link>
-    </div>
-
     <!-- Recent Estimates Table -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-        <h2 class="font-bold text-lg">История последних смет</h2>
+        <h2 class="font-bold text-lg">История смет</h2>
       </div>
 
       <div v-if="loading" class="p-12 text-center text-gray-400">
@@ -118,13 +76,13 @@
               v-for="est in estimateStore.estimates" 
               :key="est.id" 
               class="hover:bg-gray-50 transition-colors cursor-pointer"
-              @click="viewEstimate(est.id)"
+              @click="openEstimate(est)"
             >
               <td class="px-6 py-4 text-sm text-gray-600">
                 {{ formatDate(est.created_at) }}
               </td>
               <td class="px-6 py-4">
-                <div class="font-bold text-gray-900">{{ est.client_name }}</div>
+                <div class="font-bold text-gray-900">{{ est.client_name || '(без имени)' }}</div>
                 <div class="text-xs text-gray-500">{{ est.client_phone }}</div>
               </td>
               <td class="px-6 py-4 text-sm text-right">
@@ -135,7 +93,7 @@
               </td>
               <td class="px-6 py-4">
                 <span :class="['px-2 py-1 rounded-full text-xs font-medium', getStatusClass(est.status)]">
-                  {{ est.status }}
+                  {{ getStatusLabel(est.status) }}
                 </span>
               </td>
               <td class="px-6 py-4 text-right" @click.stop>
@@ -163,7 +121,7 @@ import { onMounted, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useEstimateStore } from '@/stores/estimate'
-import { PhPlusCircle, PhSignOut, PhCircleNotch, PhFileText, PhArrowRight, PhListBullets, PhTrash, PhUserGear, PhShieldCheck } from '@phosphor-icons/vue'
+import { PhPlusCircle, PhUser, PhCircleNotch, PhFileText, PhArrowRight, PhTrash } from '@phosphor-icons/vue'
 import api from '@/services/api'
 
 const router = useRouter()
@@ -190,19 +148,40 @@ const formatDate = (dateStr) => {
 
 const getStatusClass = (status) => {
   const classes = {
-    'draft': 'bg-gray-100 text-gray-600',
+    'draft': 'bg-yellow-100 text-yellow-700',
     'completed': 'bg-green-100 text-green-700',
     'sent': 'bg-blue-100 text-blue-700'
   }
   return classes[status] || 'bg-gray-100 text-gray-600'
 }
 
-const viewEstimate = (id) => {
-  router.push({ name: 'estimate-view', params: { id } })
+const getStatusLabel = (status) => {
+  const labels = {
+    'draft': 'Черновик',
+    'completed': 'Завершена',
+    'sent': 'Отправлена',
+    'accepted': 'Принята',
+    'rejected': 'Отклонена'
+  }
+  return labels[status] || status
+}
+
+const createNewEstimate = () => {
+  estimateStore.clear()
+  router.push({ name: 'estimate-new' })
+}
+
+const openEstimate = (est) => {
+  // Drafts open in wizard for editing, completed open in detail view
+  if (est.status === 'draft') {
+    router.push({ name: 'estimate-edit', params: { id: est.id } })
+  } else {
+    router.push({ name: 'estimate-edit', params: { id: est.id } })
+  }
 }
 
 const deleteEstimate = async (id, clientName) => {
-  if (!confirm(`Удалить смету для "${clientName}"?`)) return
+  if (!confirm(`Удалить смету для "${clientName || '(без имени)'}"?`)) return
   
   try {
     await api.delete(`/estimates/${id}`)

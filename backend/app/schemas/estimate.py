@@ -55,6 +55,7 @@ class EstimateBase(BaseModel):
     client_phone: Optional[str] = ""
     client_address: Optional[str] = ""
     status: EstimateStatus = EstimateStatus.DRAFT
+    last_step: Optional[int] = 1
 
 class EstimateCreate(EstimateBase):
     rooms: List[EstimateRoomCreate] = []
@@ -64,6 +65,7 @@ class EstimateUpdate(BaseModel):
     client_phone: Optional[str] = None
     client_address: Optional[str] = None
     status: Optional[EstimateStatus] = None
+    last_step: Optional[int] = None
     rooms: Optional[List[EstimateRoomCreate]] = None
 
 class EstimateResponse(EstimateBase):
@@ -72,6 +74,7 @@ class EstimateResponse(EstimateBase):
     estimate_date: datetime
     total_area: Decimal
     total_sum: Decimal
+    last_step: Optional[int] = 1
     created_at: datetime
     rooms: List[EstimateRoomResponse] = []
 

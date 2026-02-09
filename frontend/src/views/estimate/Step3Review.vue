@@ -177,7 +177,11 @@ const removeItem = (rIdx, iIdx) => {
 const finishEstimate = async () => {
     loading.value = true
     try {
-        await estimateStore.createEstimate()
+        if (estimateStore.isEditing) {
+            await estimateStore.updateEstimate()
+        } else {
+            await estimateStore.createEstimate()
+        }
         emit('next')
     } catch (e) {
         alert('Ошибка при сохранении: ' + e.message)

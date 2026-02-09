@@ -25,9 +25,9 @@ const routes = [
         component: () => import('@/views/estimate/EstimateWizard.vue'),
     },
     {
-        path: '/prices',
-        name: 'prices',
-        component: () => import('@/views/price/PriceListView.vue'),
+        path: '/estimate/edit/:id',
+        name: 'estimate-edit',
+        component: () => import('@/views/estimate/EstimateWizard.vue'),
     },
     {
         path: '/estimate/:id',
@@ -35,9 +35,19 @@ const routes = [
         component: () => import('@/views/estimate/EstimateDetailView.vue'),
     },
     {
+        path: '/prices',
+        name: 'prices',
+        component: () => import('@/views/price/PriceListView.vue'),
+    },
+    {
         path: '/profile',
         name: 'profile',
         component: () => import('@/views/profile/ProfileView.vue'),
+    },
+    {
+        path: '/account',
+        name: 'account',
+        component: () => import('@/views/account/AccountView.vue'),
     },
     {
         path: '/admin',

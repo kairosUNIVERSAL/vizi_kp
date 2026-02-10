@@ -21,6 +21,9 @@ def upgrade() -> None:
     # Categories
     op.add_column('categories', sa.Column('is_equipment', sa.Boolean(), server_default='false', nullable=True))
     
+    # Price Items
+    op.add_column('price_items', sa.Column('synonyms', sa.Text(), server_default='', nullable=True))
+    
     # Estimates
     op.add_column('estimates', sa.Column('discount_pr_work', sa.Numeric(precision=5, scale=2), server_default='0', nullable=True))
     op.add_column('estimates', sa.Column('discount_equipment', sa.Numeric(precision=5, scale=2), server_default='0', nullable=True))
@@ -30,6 +33,9 @@ def downgrade() -> None:
     # Estimates
     op.drop_column('estimates', 'discount_equipment')
     op.drop_column('estimates', 'discount_pr_work')
+    
+    # Price Items
+    op.drop_column('price_items', 'synonyms')
     
     # Categories
     op.drop_column('categories', 'is_equipment')

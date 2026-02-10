@@ -191,6 +191,7 @@ const addItemToRoom = (selectedItem) => {
     if (!room) return
     
     estimateStore.addItem({
+        roomIndex: activeRoomIdx.value, // Pass index for precise lookup
         room: room.name,
         price_item_id: selectedItem.id,
         name: selectedItem.name,

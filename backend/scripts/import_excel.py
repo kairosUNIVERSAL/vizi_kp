@@ -102,9 +102,10 @@ def import_price_list():
             else:
                 # Update is_equipment flag
                 category.is_equipment = is_equipment
-                category.name = sheet_name # Update name to match Excel if needed
+                # category.name = sheet_name # Optional: keep existing name or sync?
                 db.add(category)
                 db.commit()
+                logger.info(f"Updated category {slug}: is_equipment={is_equipment}")
 
             # Process Rows
             ws = workbook[sheet_name]
@@ -135,6 +136,8 @@ def import_price_list():
                             # For now, simplistic approach: "Цена"
                             if 'price' not in col_map: 
                                 col_map['price'] = col_idx
+                        elif "синоним" in val:
+                            col_map['synonyms'] = col_idx
                     
                     if 'name' in col_map and 'price' in col_map:
                         break
@@ -166,6 +169,10 @@ def import_price_list():
                     except:
                         price_val = 0
                 
+                synonyms = ""
+                if 'synonyms' in col_map and row[col_map['synonyms']]:
+                     synonyms = str(row[col_map['synonyms']]).strip()
+
                 # Create or Update PriceItem
                 # Check if exists by name in this category
                 item = db.query(PriceItem).filter(
@@ -177,6 +184,7 @@ def import_price_list():
                 if item:
                     item.price = price_val
                     item.unit = unit
+                    item.synonyms = synonyms
                     item.is_active = True
                 else:
                     item = PriceItem(
@@ -185,6 +193,7 @@ def import_price_list():
                         name=name,
                         unit=unit,
                         price=price_val,
+                        synonyms=synonyms,
                         is_active=True,
                         is_custom=False
                     )

@@ -28,10 +28,24 @@ export const useEstimateStore = defineStore('estimate', () => {
     }
 
     const addItem = (item) => {
-        let room = rooms.value.find(r => r.name === item.room)
+        let room;
+        // Check if item has room index
+        if (typeof item.roomIndex !== 'undefined' && rooms.value[item.roomIndex]) {
+            room = rooms.value[item.roomIndex]
+        } else {
+            // Fallback to name (legacy)
+            room = rooms.value.find(r => r.name === item.room)
+        }
+
         if (!room) {
-            room = { name: item.room, items: [], area: 0, subtotal: 0 }
-            rooms.value.push(room)
+            // Only create if we really can't find it, but for "Add Item" button we should always have a room
+            if (item.room) {
+                room = { name: item.room, items: [], area: 0, subtotal: 0 }
+                rooms.value.push(room)
+            } else {
+                console.error("Cannot add item: no room specified", item)
+                return
+            }
         }
 
         room.items.push({

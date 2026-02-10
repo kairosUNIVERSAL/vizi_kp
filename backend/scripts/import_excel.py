@@ -152,38 +152,38 @@ def import_simple_sheet(db, ws, company_id: int, category_name: str, is_equipmen
     logger.info(f"  {category_name}: imported {count} items")
 
 
-def import_categorized_sheet(db, ws, company_id: int, is_equipment: bool):
+def import_categorized_sheet(db, ws, company_id: int, sheet_name: str, is_equipment: bool):
     """
     Import a sheet with subcategories (Услуги, Оборудование).
+    Uses the SHEET NAME as the single category (not the subcategory column).
     Columns: № | Категория | Наименование | Ед. | Цена | Синонимы [| Комментарий]
     """
-    categories_cache = {}
+    category = get_or_create_category(db, sheet_name, is_equipment)
     count = 0
 
     for row in ws.iter_rows(min_row=2, values_only=True):
-        # row[0]=№, row[1]=Категория, row[2]=Наименование, row[3]=Ед., row[4]=Цена, row[5]=Синонимы
+        # row[0]=№, row[1]=Категория (subcategory), row[2]=Наименование, row[3]=Ед., row[4]=Цена, row[5]=Синонимы
         if not row[2]:
             continue
 
-        cat_name = str(row[1]).strip() if row[1] else "Прочее"
+        subcategory = str(row[1]).strip() if row[1] else ""
         name = str(row[2]).strip()
         if not name:
             continue
 
-        # Cache category lookups
-        if cat_name not in categories_cache:
-            categories_cache[cat_name] = get_or_create_category(db, cat_name, is_equipment)
-
-        category = categories_cache[cat_name]
         unit = str(row[3]).strip() if row[3] else "шт"
         price = parse_price(row[4])
         synonyms = str(row[5]).strip() if row[5] else ""
+
+        # Append subcategory to synonyms for search (e.g. "Углы", "Карнизы")
+        if subcategory and subcategory.lower() not in synonyms.lower():
+            synonyms = f"{subcategory}, {synonyms}" if synonyms else subcategory
 
         upsert_price_item(db, company_id, category.id, name, unit, price, synonyms)
         count += 1
 
     db.commit()
-    logger.info(f"  Sheet with subcategories: imported {count} items across {len(categories_cache)} categories")
+    logger.info(f"  {sheet_name}: imported {count} items (is_equipment={is_equipment})")
 
 
 def import_price_list():
@@ -243,9 +243,9 @@ def import_price_list():
             has_category_col = "категория" in header
 
             if has_category_col:
-                # Услуги or Оборудование — has subcategory column
+                # Услуги or Оборудование — one category per sheet
                 is_equipment = sheet_name.lower() in ["оборудование"]
-                import_categorized_sheet(db, ws, company_id, is_equipment)
+                import_categorized_sheet(db, ws, company_id, sheet_name, is_equipment)
             else:
                 # Полотна or Профили — simple structure, one category per sheet
                 is_equipment = False

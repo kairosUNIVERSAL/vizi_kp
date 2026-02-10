@@ -235,32 +235,34 @@ def import_price_list():
         if orphan_cats:
             logger.info(f"Deleted {len(orphan_cats)} orphaned categories: {[c.name for c in orphan_cats]}")
 
-        # ── Business rule: 2 categories ──
-        # Услуги (is_equipment=false) = sheet "Услуги"
-        # Оборудование (is_equipment=true) = everything else (Полотна, Профили, Оборудование, etc.)
-        cat_services = get_or_create_category(db, "Услуги", is_equipment=False)
-        cat_equipment = get_or_create_category(db, "Оборудование", is_equipment=True)
+        # ── Business rule: 4 categories (one per sheet) ──
+        # Услуги (is_equipment=false), rest (is_equipment=true)
+        SHEET_CONFIG = {
+            "полотна":       {"category_name": "Полотна",       "is_equipment": True},
+            "профили":       {"category_name": "Профили",       "is_equipment": True},
+            "услуги":        {"category_name": "Услуги",        "is_equipment": False},
+            "оборудование":  {"category_name": "Оборудование",  "is_equipment": True},
+        }
 
         # Process each sheet
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
             logger.info(f"Processing sheet: {sheet_name} ({ws.max_row} rows)")
 
+            config = SHEET_CONFIG.get(sheet_name.lower())
+            if not config:
+                logger.warning(f"  Unknown sheet '{sheet_name}', skipping")
+                continue
+
+            target_category = get_or_create_category(db, config["category_name"], config["is_equipment"])
+
             # Read header row to determine column layout
             header = [str(c).strip().lower() if c else "" for c in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
             has_category_col = "категория" in header
 
-            # Determine target category
-            if sheet_name.lower() == "услуги":
-                target_category = cat_services
-            else:
-                target_category = cat_equipment
-
             if has_category_col:
-                # Sheets with subcategory column (Услуги, Оборудование)
                 import_categorized_sheet(db, ws, company_id, target_category, sheet_name)
             else:
-                # Simple sheets (Полотна, Профили) — sheet name goes to synonyms
                 import_simple_sheet(db, ws, company_id, target_category, sheet_name)
 
         logger.info("Import completed successfully!")

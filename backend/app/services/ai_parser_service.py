@@ -1,11 +1,14 @@
 import json
 import re
+import logging
 import httpx
 from decimal import Decimal
 from typing import List, Dict, Any
 from app.config import settings
 from app.models import PriceItem
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 class AIParserService:
     def __init__(self):
@@ -20,23 +23,36 @@ class AIParserService:
             PriceItem.is_active == True
         ).all()
         
+        logger.info(f"[PARSER] company_id={company_id}, found {len(price_items)} price items")
+        logger.info(f"[PARSER] API key present: {bool(self.api_key)}, model: {self.model}")
+        logger.info(f"[PARSER] Transcript: {transcript[:200]}...")
+        
         # If API key not configured, use fallback regex parser
         if not self.api_key:
+            logger.warning("[PARSER] No API key — using FALLBACK regex parser")
             return self._fallback_parse(transcript, price_items)
         
         # Use OpenRouter AI parser
+        logger.info("[PARSER] Using AI parser (OpenRouter)")
         items_text = self._format_items_for_prompt(price_items)
         prompt = self._build_prompt(items_text, transcript)
         
         try:
             response_text, usage = self._call_openrouter(prompt)
+            logger.info(f"[PARSER] AI response length: {len(response_text)} chars")
+            logger.info(f"[PARSER] AI raw response: {response_text[:500]}")
+            logger.info(f"[PARSER] Usage: {usage}")
             result = self._parse_response(response_text, price_items)
+            
+            rooms = result.get('rooms', [])
+            total_items = sum(len(r.get('items', [])) for r in rooms)
+            unknown = len(result.get('unknown_items', []))
+            logger.info(f"[PARSER] Result: {len(rooms)} rooms, {total_items} items matched, {unknown} unknown")
             
             # Update user statistics if user provided
             if user and usage:
                 tokens_used = usage.get("total_tokens", 0)
-                # OpenRouter pricing (approximate for common models)
-                cost = tokens_used * 0.000002  # ~$2 per 1M tokens average
+                cost = tokens_used * 0.000002
                 
                 user.total_tokens_used = (user.total_tokens_used or 0) + tokens_used
                 user.total_api_cost = float(user.total_api_cost or 0) + cost
@@ -44,8 +60,8 @@ class AIParserService:
             
             return result
         except Exception as e:
-            print(f"OpenRouter API error: {e}")
-            # Fallback on AI error
+            logger.error(f"[PARSER] OpenRouter API ERROR: {e}", exc_info=True)
+            logger.warning("[PARSER] Falling back to regex parser")
             return self._fallback_parse(transcript, price_items)
 
     def _call_openrouter(self, prompt: str) -> tuple:

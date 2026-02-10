@@ -49,14 +49,18 @@ class AIParserService:
             unknown = len(result.get('unknown_items', []))
             logger.info(f"[PARSER] Result: {len(rooms)} rooms, {total_items} items matched, {unknown} unknown")
             
-            # Update user statistics if user provided
+            # Update user statistics if user provided (never crash the result)
             if user and usage:
-                tokens_used = usage.get("total_tokens", 0)
-                cost = tokens_used * 0.000002
-                
-                user.total_tokens_used = (user.total_tokens_used or 0) + tokens_used
-                user.total_api_cost = float(user.total_api_cost or 0) + cost
-                db.commit()
+                try:
+                    tokens_used = usage.get("total_tokens") or 0
+                    cost = tokens_used * 0.000002
+                    
+                    user.total_tokens_used = (user.total_tokens_used or 0) + tokens_used
+                    user.total_api_cost = float(user.total_api_cost or 0) + cost
+                    db.commit()
+                except Exception as stats_err:
+                    logger.warning(f"[PARSER] Stats update failed (non-critical): {stats_err}")
+                    db.rollback()
             
             return result
         except Exception as e:

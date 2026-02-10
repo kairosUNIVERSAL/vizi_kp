@@ -22,6 +22,8 @@ class Estimate(Base):
     estimate_date = Column(DateTime(timezone=True), server_default=func.now())
     total_area = Column(Numeric(10, 2), default=0)
     total_sum = Column(Numeric(12, 2), default=0)
+    discount_pr_work = Column(Numeric(5, 2), default=0)  # Скидка на потолок и работы (%)
+    discount_equipment = Column(Numeric(5, 2), default=0)  # Скидка на оборудование (%)
     status = Column(Enum(EstimateStatus), default=EstimateStatus.DRAFT)
     last_step = Column(Integer, default=1)  # Wizard step (1-4) for resuming drafts
     created_at = Column(DateTime(timezone=True), server_default=func.now())

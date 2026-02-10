@@ -10,6 +10,7 @@ class Category(Base):
     slug = Column(String(50), unique=True, nullable=False)
     sort_order = Column(Integer, default=0)
     is_system = Column(Boolean, default=True)  # Системная или пользовательская
+    is_equipment = Column(Boolean, default=False)  # Относится ли к оборудованию (для разделения в КП)
     
     # Relationships
     price_items = relationship("PriceItem", back_populates="category")

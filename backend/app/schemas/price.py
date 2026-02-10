@@ -8,6 +8,7 @@ class CategoryBase(BaseModel):
     slug: str
     sort_order: int = 0
     is_system: bool = True
+    is_equipment: bool = False
 
 class CategoryResponse(CategoryBase):
     id: int

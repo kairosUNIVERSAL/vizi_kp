@@ -49,6 +49,8 @@ class EstimateBase(BaseModel):
     client_address: Optional[str] = ""
     status: EstimateStatus = EstimateStatus.DRAFT
     last_step: Optional[int] = 1
+    discount_pr_work: Optional[Decimal] = 0
+    discount_equipment: Optional[Decimal] = 0
 
 class EstimateCreate(EstimateBase):
     rooms: List[EstimateRoomCreate] = []
@@ -60,6 +62,8 @@ class EstimateUpdate(BaseModel):
     status: Optional[EstimateStatus] = None
     last_step: Optional[int] = None
     rooms: Optional[List[EstimateRoomCreate]] = None
+    discount_pr_work: Optional[Decimal] = None
+    discount_equipment: Optional[Decimal] = None
 
 class EstimateResponse(EstimateBase):
     id: int

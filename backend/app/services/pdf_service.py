@@ -3,7 +3,7 @@ from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, KeepTogether, PageBreak
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import cm
@@ -98,9 +98,83 @@ class PDFService:
         elements = []
 
         # 1. Заголовок и Логотип
-        header_data = []
-        company_details = []
+        self._add_header(elements, company)
+
+        # 2. Данные клиента
+        self._add_client_info(elements, estimate)
         
+        # 3. Разделение позиций на категории
+        main_items_by_room = {} # room_name: [items]
+        equip_items_by_room = {} # room_name: [items]
+        
+        rooms = list(estimate.rooms) if estimate.rooms else []
+        for room in rooms:
+            if not room.items: continue
+            
+            m_items = []
+            e_items = []
+            
+            for item in room.items:
+                is_equipment = False
+                if item.price_item and item.price_item.category and item.price_item.category.is_equipment:
+                    is_equipment = True
+                
+                if is_equipment:
+                    e_items.append(item)
+                else:
+                    m_items.append(item)
+            
+            if m_items:
+                main_items_by_room[room] = m_items
+            if e_items:
+                equip_items_by_room[room] = e_items
+
+        # 4. Основной блок (Потолки и работы)
+        subtotal_main = 0
+        if main_items_by_room:
+            elements.append(Paragraph("ОСНОВНОЙ БЛОК (Потолки и работы)", self.styles['RussianHeader']))
+            elements.append(Spacer(1, 0.2*cm))
+            subtotal_main = self._add_items_table(elements, main_items_by_room)
+            elements.append(Spacer(1, 0.5*cm))
+
+        # 5. Блок оборудования
+        subtotal_equip = 0
+        if equip_items_by_room:
+            elements.append(Paragraph("ДОПОЛНИТЕЛЬНОЕ ОБОРУДОВАНИЕ И ОСВЕЩЕНИЕ", self.styles['RussianHeader']))
+            elements.append(Spacer(1, 0.2*cm))
+            subtotal_equip = self._add_items_table(elements, equip_items_by_room)
+            elements.append(Spacer(1, 0.5*cm))
+
+        # 6. Расчет итогов со скидками
+        discount_main_percent = float(estimate.discount_pr_work or 0)
+        discount_equip_percent = float(estimate.discount_equipment or 0)
+        
+        subtotal_main = float(subtotal_main)
+        subtotal_equip = float(subtotal_equip)
+        
+        discount_main_sum = subtotal_main * (discount_main_percent / 100)
+        discount_equip_sum = subtotal_equip * (discount_equip_percent / 100)
+        
+        total_main = subtotal_main - discount_main_sum
+        total_equip = subtotal_equip - discount_equip_sum
+        
+        grand_total = total_main + total_equip
+
+        # 7. Итоговая таблица
+        self._add_summary(elements, subtotal_main, discount_main_percent, discount_main_sum, 
+                          subtotal_equip, discount_equip_percent, discount_equip_sum, grand_total)
+
+        # 8. Блок гарантий и реквизитов
+        self._add_footer(elements, company)
+
+        # Build PDF
+        doc.build(elements)
+        
+        pdf_bytes = buffer.getvalue()
+        buffer.close()
+        return pdf_bytes
+
+    def _add_header(self, elements, company):
         # Логотип (если есть)
         logo = None
         if company.logo_path and os.path.exists(company.logo_path):
@@ -160,7 +234,7 @@ class PDFService:
         elements.append(Paragraph("КОММЕРЧЕСКОЕ ПРЕДЛОЖЕНИЕ", self.styles['RussianTitle']))
         elements.append(Spacer(1, 0.5*cm))
 
-        # 2. Данные клиента
+    def _add_client_info(self, elements, estimate):
         client_data = [
             [Paragraph("<b>Заказчик:</b>", self.styles['RussianBody']), 
              Paragraph(estimate.client_name or "-", self.styles['RussianBody'])],
@@ -180,81 +254,110 @@ class PDFService:
         elements.append(client_table)
         elements.append(Spacer(1, 1*cm))
 
-        # 3. Таблицы по комнатам
-        rooms = list(estimate.rooms) if estimate.rooms else []
+    def _add_items_table(self, elements, items_by_room):
+        block_subtotal = 0
         
-        if not rooms:
-            elements.append(Paragraph("Нет позиций в смете", self.styles['RussianBody']))
-        else:
-            for room in rooms:
-                room_area = float(room.area) if room.area else 0
-                elements.append(Paragraph(
-                    f"Комната: {room.name} (Площадь: {room_area:.1f} м²)",
-                    self.styles['RussianBold']
-                ))
-                elements.append(Spacer(1, 0.2*cm))
+        for room, items in items_by_room.items():
+            # Room Header
+            room_area = float(room.area) if room.area else 0
+            # Calculate sum for this block's items
+            room_block_sum = sum(float(i.sum) if i.sum else float(i.quantity)*float(i.price) for i in items)
+            block_subtotal += room_block_sum
+            
+            elements.append(Paragraph(
+                f"Комната: {room.name} (Площадь: {room_area:.1f} м²)",
+                self.styles['RussianBold']
+            ))
+            elements.append(Spacer(1, 0.2*cm))
 
-                items = list(room.items) if room.items else []
+            # Items Table
+            data = [['Наименование', 'Кол-во', 'Ед.', 'Цена', 'Сумма']]
+            for item in items:
+                quantity = float(item.quantity) if item.quantity else 0
+                price = float(item.price) if item.price else 0
+                item_sum = float(item.sum) if item.sum else quantity * price
                 
-                if items:
-                    data = [['Наименование', 'Кол-во', 'Ед.', 'Цена', 'Сумма']]
-                    for item in items:
-                        quantity = float(item.quantity) if item.quantity else 0
-                        price = float(item.price) if item.price else 0
-                        item_sum = float(item.sum) if item.sum else quantity * price
-                        
-                        data.append([
-                            str(item.name or '-'),
-                            f"{quantity:.1f}",
-                            str(item.unit or 'шт'),
-                            f"{price:,.0f}".replace(',', ' '),
-                            f"{item_sum:,.0f}".replace(',', ' ')
-                        ])
-                    
-                    room_subtotal = float(room.subtotal) if room.subtotal else 0
-                    data.append(['', '', '', 'Итого:', f"{room_subtotal:,.0f}".replace(',', ' ')])
+                data.append([
+                    str(item.name or '-'),
+                    f"{quantity:.1f}",
+                    str(item.unit or 'шт'),
+                    f"{price:,.0f}".replace(',', ' '),
+                    f"{item_sum:,.0f}".replace(',', ' ')
+                ])
+            
+            # Room Subtotal for this block
+            data.append(['', '', '', 'Подытог:', f"{room_block_sum:,.0f}".replace(',', ' ')])
 
-                    table = Table(data, colWidths=[8*cm, 2*cm, 1.5*cm, 2.5*cm, 3*cm])
-                    table.setStyle(TableStyle([
-                        ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1e40af')), # Dark blue
-                        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-                        ('ALIGN', (0,0), (-1,-1), 'LEFT'),
-                        ('ALIGN', (1,0), (-1,-1), 'RIGHT'),
-                        ('FONTNAME', (0,0), (-1,-1), FONT_NAME),
-                        ('FONTNAME', (0,0), (-1,0), FONT_BOLD),
-                        ('FONTNAME', (0,-1), (-1,-1), FONT_BOLD),
-                        ('FONTSIZE', (0,0), (-1,-1), 9),
-                        ('BOTTOMPADDING', (0,0), (-1,0), 8),
-                        ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f8fafc')),
-                        ('GRID', (0,0), (-1,-2), 0.5, colors.HexColor('#cbd5e1')), # Light grey border
-                        ('LINEBELOW', (0,-1), (-1,-1), 1, colors.HexColor('#1e40af')),
-                    ]))
-                    elements.append(table)
-                else:
-                    elements.append(Paragraph("Нет позиций", self.styles['RussianSmall']))
-                    
-                elements.append(Spacer(1, 0.5*cm))
+            table = Table(data, colWidths=[8*cm, 2*cm, 1.5*cm, 2.5*cm, 3*cm])
+            table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#1e40af')), # Dark blue
+                ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+                ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+                ('ALIGN', (1,0), (-1,-1), 'RIGHT'),
+                ('FONTNAME', (0,0), (-1,-1), FONT_NAME),
+                ('FONTNAME', (0,0), (-1,0), FONT_BOLD),
+                ('FONTNAME', (0,-1), (-1,-1), FONT_BOLD),
+                ('FONTSIZE', (0,0), (-1,-1), 9),
+                ('BOTTOMPADDING', (0,0), (-1,0), 8),
+                ('BACKGROUND', (0,-1), (-1,-1), colors.HexColor('#f8fafc')),
+                ('GRID', (0,0), (-1,-2), 0.5, colors.HexColor('#cbd5e1')), # Light grey border
+                ('LINEBELOW', (0,-1), (-1,-1), 1, colors.HexColor('#1e40af')),
+            ]))
+            elements.append(table)
+            elements.append(Spacer(1, 0.5*cm))
+        
+        return block_subtotal
 
-        elements.append(Spacer(1, 0.5*cm))
+    def _add_summary(self, elements, subtotal_main, discount_main_pct, discount_main_sum, 
+                     subtotal_equip, discount_equip_pct, discount_equip_sum, grand_total):
+        
+        summary_data = []
+        
+        # Main Block Summary
+        if subtotal_main > 0:
+            summary_data.append(['Сумма по основным работам:', f"{subtotal_main:,.0f} руб.".replace(',', ' ')])
+            if discount_main_pct > 0:
+                 summary_data.append([f'Скидка на работы ({discount_main_pct:g}%):', f"-{discount_main_sum:,.0f} руб.".replace(',', ' ')])
+                 summary_data.append(['Итого работы со скидкой:', f"{(subtotal_main - discount_main_sum):,.0f} руб.".replace(',', ' ')])
 
-        # 4. Итого
-        total_sum = float(estimate.total_sum) if estimate.total_sum else 0
-        summary_data = [
-            [Paragraph(f"<b>ОБЩАЯ СУММА К ОПЛАТЕ: {total_sum:,.0f} руб.</b>".replace(',', ' '), self.styles['RussianTitle'])]
-        ]
-        summary_table = Table(summary_data, colWidths=[17*cm])
-        summary_table.setStyle(TableStyle([
+        # Equipment Block Summary
+        if subtotal_equip > 0:
+            summary_data.append(['Сумма по оборудованию:', f"{subtotal_equip:,.0f} руб.".replace(',', ' ')])
+            if discount_equip_pct > 0:
+                 summary_data.append([f'Скидка на оборудование ({discount_equip_pct:g}%):', f"-{discount_equip_sum:,.0f} руб.".replace(',', ' ')])
+                 summary_data.append(['Итого оборудование со скидкой:', f"{(subtotal_equip - discount_equip_sum):,.0f} руб.".replace(',', ' ')])
+
+        # Grand Total
+        summary_data.append(['ВСЕГО К ОПЛАТЕ:', f"{grand_total:,.0f} руб.".replace(',', ' ')])
+
+        summary_table = Table(summary_data, colWidths=[12*cm, 5*cm])
+        
+        # Apply style based on rows
+        table_style = [
             ('ALIGN', (0,0), (-1,-1), 'RIGHT'),
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')), # Very light blue/grey
-            ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#1e40af')), # Dark blue border
-            ('TOPPADDING', (0,0), (-1,-1), 10),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 10),
-        ]))
+            ('FONTNAME', (0,0), (-1,-1), FONT_NAME),
+            ('FONTSIZE', (0,0), (-1,-1), 10),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ]
+        
+        # Bold and Font size for the last row (Grand Total)
+        last_row_idx = len(summary_data) - 1
+        table_style.append(('FONTNAME', (0, last_row_idx), (-1, last_row_idx), FONT_BOLD))
+        table_style.append(('FONTSIZE', (0, last_row_idx), (-1, last_row_idx), 14))
+        table_style.append(('TEXTCOLOR', (0, last_row_idx), (-1, last_row_idx), colors.HexColor('#1e40af')))
+        
+        # Background and Box
+        table_style.append(('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')))
+        table_style.append(('BOX', (0,0), (-1,-1), 1, colors.HexColor('#1e40af')))
+        table_style.append(('TOPPADDING', (0,0), (-1,-1), 10))
+        table_style.append(('BOTTOMPADDING', (0,0), (-1,-1), 10))
+
+        summary_table.setStyle(TableStyle(table_style))
         elements.append(summary_table)
         elements.append(Spacer(1, 0.5*cm))
         elements.append(Spacer(1, 1*cm))
 
-        # 5. Блок гарантий и реквизитов
+    def _add_footer(self, elements, company):
         bottom_elements = []
         
         # Гарантии
@@ -268,6 +371,11 @@ class PDFService:
         bottom_elements.append(Paragraph(f"- Гарантия на монтажные работы: {warranty_work} лет", self.styles['RussianBody']))
         bottom_elements.append(Paragraph(f"- Срок действия предложения: {validity_days} дней", self.styles['RussianBody']))
         bottom_elements.append(Spacer(1, 0.3*cm))
+        # Remove old discount generic text if we now have specific discounts?
+        # Maybe keep it as "Additional discount for quick decision" text, but remove hard number?
+        # Or keep it as generic marketing. The user asked for specific fields.
+        # "При заключении договора в день замера — дополнительная скидка..."
+        # This seems to be a marketing text, separate from the calculation.
         bottom_elements.append(Paragraph(
             f"<b>При заключении договора в день замера — дополнительная скидка {discount:.0f}%!</b>",
             self.styles['RussianBold']
@@ -311,11 +419,5 @@ class PDFService:
         ]))
         elements.append(sig_table)
 
-        # Build PDF
-        doc.build(elements)
-        
-        pdf_bytes = buffer.getvalue()
-        buffer.close()
-        return pdf_bytes
 
 pdf_service = PDFService()

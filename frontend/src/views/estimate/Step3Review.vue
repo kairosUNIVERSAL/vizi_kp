@@ -96,6 +96,41 @@
                 </button>
             </div>
         </div>
+
+        <!-- Add Room Button -->
+        <button 
+            @click="addNewRoom"
+            class="w-full mt-6 py-4 border-2 border-dashed border-gray-300 rounded-xl font-bold text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+        >
+            <PhPlus :size="20" weight="bold" />
+            Добавить новую комнату
+        </button>
+
+        <!-- Discount Inputs -->
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <h3 class="text-lg font-bold mb-4">Скидки</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Скидка на Потолок/Работы (%)</label>
+                    <input 
+                        type="number" 
+                        v-model.number="estimateStore.discountPrWork" 
+                        class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        placeholder="0"
+                    />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Скидка на Оборудование (%)</label>
+                    <input 
+                        type="number" 
+                        v-model.number="estimateStore.discountEquipment" 
+                        class="w-full border-gray-300 rounded-lg shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        placeholder="0"
+                    />
+                </div>
+            </div>
+        </div>
+
     </div>
     
     <div class="flex justify-between pt-4">
@@ -142,6 +177,13 @@ const formatPrice = (val) => new Intl.NumberFormat('ru-RU').format(val || 0)
 const openQuickAdd = (idx) => {
     activeRoomIdx.value = idx
     showQuickAdd.value = true
+}
+
+const addNewRoom = () => {
+    const name = prompt("Введите название комнаты:", "Новая комната")
+    if (name) {
+        estimateStore.addRoom(name)
+    }
 }
 
 const addItemToRoom = (selectedItem) => {

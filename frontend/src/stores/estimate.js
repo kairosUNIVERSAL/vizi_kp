@@ -14,6 +14,19 @@ export const useEstimateStore = defineStore('estimate', () => {
     const currentStep = ref(1)
     const estimates = ref([])
 
+    // New fields
+    const discountPrWork = ref(0)
+    const discountEquipment = ref(0)
+
+    const addRoom = (name = "Новая комната") => {
+        rooms.value.push({
+            name,
+            area: 0,
+            subtotal: 0,
+            items: []
+        })
+    }
+
     const addItem = (item) => {
         let room = rooms.value.find(r => r.name === item.room)
         if (!room) {
@@ -42,6 +55,8 @@ export const useEstimateStore = defineStore('estimate', () => {
     const clear = () => {
         estimate.value = null
         rooms.value = []
+        discountPrWork.value = 0
+        discountEquipment.value = 0
         clientInfo.value = {
             client_name: '',
             client_phone: '',
@@ -56,6 +71,9 @@ export const useEstimateStore = defineStore('estimate', () => {
         estimate.value = data
         isEditing.value = true
         currentStep.value = data.last_step || 1
+
+        discountPrWork.value = Number(data.discount_pr_work) || 0
+        discountEquipment.value = Number(data.discount_equipment) || 0
 
         clientInfo.value = {
             client_name: data.client_name || '',
@@ -84,6 +102,8 @@ export const useEstimateStore = defineStore('estimate', () => {
         return {
             ...clientInfo.value,
             last_step: currentStep.value,
+            discount_pr_work: discountPrWork.value,
+            discount_equipment: discountEquipment.value,
             rooms: rooms.value.map(r => ({
                 name: r.name,
                 area: r.area || 0,
@@ -160,9 +180,12 @@ export const useEstimateStore = defineStore('estimate', () => {
         rooms,
         estimates,
         clientInfo,
+        discountPrWork,
+        discountEquipment,
         isEditing,
         currentStep,
         addItem,
+        addRoom,
         recalculate,
         clear,
         loadEstimate,

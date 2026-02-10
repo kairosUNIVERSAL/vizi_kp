@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import httpx
 import tempfile
@@ -7,6 +8,9 @@ from app.config import settings
 import logging
 
 logger = logging.getLogger(__name__)
+
+MAX_RETRIES = 3
+RETRY_DELAY_SECONDS = 2
 
 
 class TranscribeService:
@@ -21,6 +25,7 @@ class TranscribeService:
         """
         Transcribe audio using Gemini Flash model via OpenRouter.
         Automatically converts input audio to MP3 using ffmpeg for compatibility.
+        Retries up to MAX_RETRIES times on transient errors.
         """
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY is not configured")
@@ -67,6 +72,30 @@ class TranscribeService:
             "temperature": 0.1
         }
         
+        last_error = None
+        
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
+                return await self._call_api(headers, payload, attempt)
+            except ValueError as e:
+                last_error = e
+                error_msg = str(e)
+                
+                # Don't retry on non-transient errors (bad request, auth, etc.)
+                is_transient = any(kw in error_msg.lower() for kw in [
+                    "503", "502", "429", "provider", "network", "timeout", "overloaded"
+                ])
+                
+                if not is_transient or attempt == MAX_RETRIES:
+                    raise
+                
+                logger.warning(f"[TRANSCRIBE] Attempt {attempt}/{MAX_RETRIES} failed: {e}. Retrying in {RETRY_DELAY_SECONDS}s...")
+                await asyncio.sleep(RETRY_DELAY_SECONDS)
+        
+        raise last_error
+
+    async def _call_api(self, headers: dict, payload: dict, attempt: int) -> str:
+        """Single API call attempt. Raises ValueError on failure."""
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(
                 f"{self.base_url}/chat/completions",
@@ -76,7 +105,7 @@ class TranscribeService:
             
             if response.status_code != 200:
                 error_body = response.text
-                logger.error(f"OpenRouter API Error ({response.status_code}): {error_body}")
+                logger.error(f"[TRANSCRIBE] Attempt {attempt} - API Error ({response.status_code}): {error_body[:200]}")
                 raise ValueError(f"Transcription failed: Provider returned {response.status_code}")
 
             data = response.json()
@@ -87,10 +116,10 @@ class TranscribeService:
 
             try:
                 transcript = data["choices"][0]["message"]["content"]
-                logger.info(f"Transcribed audio: {transcript[:100]}...")
+                logger.info(f"[TRANSCRIBE] Attempt {attempt} - Success: {transcript[:100]}...")
                 return transcript.strip()
             except (KeyError, IndexError) as e:
-                 logger.error(f"Unexpected API response format: {data}")
+                 logger.error(f"[TRANSCRIBE] Unexpected API response format: {data}")
                  raise ValueError("Invalid response from transcription service")
 
     def _convert_to_mp3(self, input_data: bytes) -> bytes:

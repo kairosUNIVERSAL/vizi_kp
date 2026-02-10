@@ -103,41 +103,38 @@ class PDFService:
         # 2. Данные клиента
         self._add_client_info(elements, estimate)
         
-        # 3. Разделение позиций на категории
-        main_items_by_room = {} # room_name: [items]
-        equip_items_by_room = {} # room_name: [items]
+        # 3. Split items into two groups:
+        #    - Main block: Полотна + Профили + Услуги (by room)
+        #    - Equipment block: Оборудование only (by room)
+        main_items_by_room = {}   # room -> [items] (Полотна, Профили, Услуги)
+        equip_items_by_room = {}  # room -> [items] (Оборудование only)
         
         rooms = list(estimate.rooms) if estimate.rooms else []
         for room in rooms:
-            if not room.items: continue
-            
-            m_items = []
-            e_items = []
+            if not room.items:
+                continue
             
             for item in room.items:
-                is_equipment = False
-                if item.price_item and item.price_item.category and item.price_item.category.is_equipment:
-                    is_equipment = True
+                cat_name = ""
+                if item.price_item and item.price_item.category:
+                    cat_name = item.price_item.category.name
                 
-                if is_equipment:
-                    e_items.append(item)
+                if cat_name == "Оборудование":
+                    if room not in equip_items_by_room:
+                        equip_items_by_room[room] = []
+                    equip_items_by_room[room].append(item)
                 else:
-                    m_items.append(item)
-            
-            if m_items:
-                main_items_by_room[room] = m_items
-            if e_items:
-                equip_items_by_room[room] = e_items
+                    if room not in main_items_by_room:
+                        main_items_by_room[room] = []
+                    main_items_by_room[room].append(item)
 
-        # 4. Основной блок (Потолки и работы)
+        # 4. Render main block (Полотна + Профили + Услуги)
         subtotal_main = 0
         if main_items_by_room:
-            elements.append(Paragraph("УСЛУГИ", self.styles['RussianHeader']))
-            elements.append(Spacer(1, 0.2*cm))
             subtotal_main = self._add_items_table(elements, main_items_by_room)
             elements.append(Spacer(1, 0.5*cm))
 
-        # 5. Блок оборудования
+        # 5. Render equipment block
         subtotal_equip = 0
         if equip_items_by_room:
             elements.append(Paragraph("ОБОРУДОВАНИЕ", self.styles['RussianHeader']))
@@ -145,24 +142,24 @@ class PDFService:
             subtotal_equip = self._add_items_table(elements, equip_items_by_room)
             elements.append(Spacer(1, 0.5*cm))
 
-        # 6. Расчет итогов со скидками
-        discount_main_percent = float(estimate.discount_pr_work or 0)
-        discount_equip_percent = float(estimate.discount_equipment or 0)
+        # 6. Calculate discounts
+        discount_main_pct = float(estimate.discount_pr_work or 0)
+        discount_equip_pct = float(estimate.discount_equipment or 0)
         
         subtotal_main = float(subtotal_main)
         subtotal_equip = float(subtotal_equip)
         
-        discount_main_sum = subtotal_main * (discount_main_percent / 100)
-        discount_equip_sum = subtotal_equip * (discount_equip_percent / 100)
+        discount_main_sum = subtotal_main * (discount_main_pct / 100)
+        discount_equip_sum = subtotal_equip * (discount_equip_pct / 100)
         
         total_main = subtotal_main - discount_main_sum
         total_equip = subtotal_equip - discount_equip_sum
         
         grand_total = total_main + total_equip
 
-        # 7. Итоговая таблица
-        self._add_summary(elements, subtotal_main, discount_main_percent, discount_main_sum, 
-                          subtotal_equip, discount_equip_percent, discount_equip_sum, grand_total)
+        # 7. Summary table
+        self._add_summary(elements, subtotal_main, discount_main_pct, discount_main_sum, 
+                          subtotal_equip, discount_equip_pct, discount_equip_sum, grand_total)
 
         # 8. Блок гарантий и реквизитов
         self._add_footer(elements, company)
@@ -313,14 +310,14 @@ class PDFService:
         
         summary_data = []
         
-        # Main Block Summary
+        # Main block summary (Полотна + Профили + Услуги)
         if subtotal_main > 0:
-            summary_data.append(['Сумма по услугам:', f"{subtotal_main:,.0f} руб.".replace(',', ' ')])
+            summary_data.append(['Сумма по потолкам и работам:', f"{subtotal_main:,.0f} руб.".replace(',', ' ')])
             if discount_main_pct > 0:
-                 summary_data.append([f'Скидка на услуги ({discount_main_pct:g}%):', f"-{discount_main_sum:,.0f} руб.".replace(',', ' ')])
-                 summary_data.append(['Итого услуги со скидкой:', f"{(subtotal_main - discount_main_sum):,.0f} руб.".replace(',', ' ')])
+                 summary_data.append([f'Скидка ({discount_main_pct:g}%):', f"-{discount_main_sum:,.0f} руб.".replace(',', ' ')])
+                 summary_data.append(['Итого со скидкой:', f"{(subtotal_main - discount_main_sum):,.0f} руб.".replace(',', ' ')])
 
-        # Equipment Block Summary
+        # Equipment block summary (only Оборудование)
         if subtotal_equip > 0:
             summary_data.append(['Сумма по оборудованию:', f"{subtotal_equip:,.0f} руб.".replace(',', ' ')])
             if discount_equip_pct > 0:

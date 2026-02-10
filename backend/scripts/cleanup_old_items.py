@@ -1,6 +1,6 @@
 """
-Cleanup script: hard-delete all deactivated price items and orphaned categories.
-Run AFTER import_excel.py to remove old seed data.
+Definitive cleanup: keep ONLY items in the 4 correct categories
+(Полотна, Профили, Услуги, Оборудование) and delete everything else.
 """
 import sys
 import os
@@ -10,46 +10,76 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from app.database import SessionLocal
 from app.models import PriceItem, Category, EstimateItem
 
+
+VALID_CATEGORIES = {"полотна", "профили", "услуги", "оборудование"}
+
+
 def cleanup():
     db = SessionLocal()
     try:
-        # Find deactivated items that have NO linked estimate items
-        inactive_items = db.query(PriceItem).filter(PriceItem.is_active == False).all()
-
-        deleted = 0
-        kept = 0
-        for item in inactive_items:
-            has_estimates = db.query(EstimateItem).filter(
-                EstimateItem.price_item_id == item.id
-            ).first()
-
-            if has_estimates:
-                kept += 1
-                print(f"  KEPT (linked to estimate): {item.name}")
-            else:
-                db.delete(item)
-                deleted += 1
-
-        db.commit()
-        print(f"\nDeleted {deleted} old items, kept {kept} (linked to estimates)")
-
-        # Delete orphaned categories (no items left)
+        # 1. Find valid category IDs
         all_cats = db.query(Category).all()
-        orphans_deleted = 0
+        valid_cat_ids = set()
+        invalid_cats = []
+
         for cat in all_cats:
-            item_count = db.query(PriceItem).filter(PriceItem.category_id == cat.id).count()
-            if item_count == 0:
-                print(f"  Deleting empty category: {cat.name}")
-                db.delete(cat)
-                orphans_deleted += 1
+            if cat.name.lower() in VALID_CATEGORIES:
+                valid_cat_ids.add(cat.id)
+                print(f"  VALID category: {cat.name} (ID={cat.id}, is_equipment={cat.is_equipment})")
+            else:
+                invalid_cats.append(cat)
+                print(f"  INVALID category: {cat.name} (ID={cat.id}) — will be cleaned")
+
+        # 2. Delete items NOT in valid categories (or deactivated duplicates)
+        all_items = db.query(PriceItem).all()
+        deleted_items = 0
+        kept_items = 0
+        kept_linked = 0
+
+        for item in all_items:
+            should_delete = (item.category_id not in valid_cat_ids) or (not item.is_active)
+
+            if should_delete:
+                # Check if linked to estimate
+                has_estimate = db.query(EstimateItem).filter(
+                    EstimateItem.price_item_id == item.id
+                ).first()
+
+                if has_estimate:
+                    kept_linked += 1
+                    print(f"  KEPT (estimate link): [{item.id}] {item.name}")
+                else:
+                    db.delete(item)
+                    deleted_items += 1
+            else:
+                kept_items += 1
 
         db.commit()
-        print(f"Deleted {orphans_deleted} empty categories")
+        print(f"\nItems: deleted {deleted_items}, kept active {kept_items}, kept linked {kept_linked}")
 
-        # Summary
-        active_count = db.query(PriceItem).filter(PriceItem.is_active == True).count()
-        cat_count = db.query(Category).count()
-        print(f"\nFinal state: {active_count} active items in {cat_count} categories")
+        # 3. Delete invalid categories (now empty)
+        for cat in invalid_cats:
+            remaining = db.query(PriceItem).filter(PriceItem.category_id == cat.id).count()
+            if remaining == 0:
+                db.delete(cat)
+                print(f"  Deleted empty category: {cat.name}")
+            else:
+                print(f"  KEPT category {cat.name} ({remaining} linked items remain)")
+
+        db.commit()
+
+        # 4. Summary
+        final_items = db.query(PriceItem).filter(PriceItem.is_active == True).count()
+        final_cats = db.query(Category).count()
+        print(f"\n=== FINAL: {final_items} active items in {final_cats} categories ===")
+
+        # Show per-category breakdown
+        for cat in db.query(Category).order_by(Category.name).all():
+            count = db.query(PriceItem).filter(
+                PriceItem.category_id == cat.id,
+                PriceItem.is_active == True
+            ).count()
+            print(f"  {cat.name}: {count} items (is_equipment={cat.is_equipment})")
 
     except Exception as e:
         print(f"Error: {e}")

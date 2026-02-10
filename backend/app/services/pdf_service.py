@@ -132,7 +132,7 @@ class PDFService:
         # 4. Основной блок (Потолки и работы)
         subtotal_main = 0
         if main_items_by_room:
-            elements.append(Paragraph("ОСНОВНОЙ БЛОК (Потолки и работы)", self.styles['RussianHeader']))
+            elements.append(Paragraph("УСЛУГИ", self.styles['RussianHeader']))
             elements.append(Spacer(1, 0.2*cm))
             subtotal_main = self._add_items_table(elements, main_items_by_room)
             elements.append(Spacer(1, 0.5*cm))
@@ -140,7 +140,7 @@ class PDFService:
         # 5. Блок оборудования
         subtotal_equip = 0
         if equip_items_by_room:
-            elements.append(Paragraph("ДОПОЛНИТЕЛЬНОЕ ОБОРУДОВАНИЕ И ОСВЕЩЕНИЕ", self.styles['RussianHeader']))
+            elements.append(Paragraph("ОБОРУДОВАНИЕ", self.styles['RussianHeader']))
             elements.append(Spacer(1, 0.2*cm))
             subtotal_equip = self._add_items_table(elements, equip_items_by_room)
             elements.append(Spacer(1, 0.5*cm))
@@ -315,10 +315,10 @@ class PDFService:
         
         # Main Block Summary
         if subtotal_main > 0:
-            summary_data.append(['Сумма по основным работам:', f"{subtotal_main:,.0f} руб.".replace(',', ' ')])
+            summary_data.append(['Сумма по услугам:', f"{subtotal_main:,.0f} руб.".replace(',', ' ')])
             if discount_main_pct > 0:
-                 summary_data.append([f'Скидка на работы ({discount_main_pct:g}%):', f"-{discount_main_sum:,.0f} руб.".replace(',', ' ')])
-                 summary_data.append(['Итого работы со скидкой:', f"{(subtotal_main - discount_main_sum):,.0f} руб.".replace(',', ' ')])
+                 summary_data.append([f'Скидка на услуги ({discount_main_pct:g}%):', f"-{discount_main_sum:,.0f} руб.".replace(',', ' ')])
+                 summary_data.append(['Итого услуги со скидкой:', f"{(subtotal_main - discount_main_sum):,.0f} руб.".replace(',', ' ')])
 
         # Equipment Block Summary
         if subtotal_equip > 0:

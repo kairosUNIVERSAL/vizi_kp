@@ -111,7 +111,7 @@
             <h3 class="text-lg font-bold mb-4">Скидки</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Скидка на Потолок/Работы (%)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Скидка на Услуги (%)</label>
                     <input 
                         type="number" 
                         v-model.number="estimateStore.discountPrWork" 

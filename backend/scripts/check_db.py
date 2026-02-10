@@ -29,9 +29,11 @@ for comp in companies:
 # User info
 users = db.query(User).all()
 for u in users:
-    comp_name = u.company.name if u.company else "NO COMPANY"
-    comp_id = u.company_id
-    print(f"  User [{u.id}] {u.email} → company_id={comp_id} ({comp_name})")
+    comp = u.company
+    if comp:
+        print(f"  User [{u.id}] {u.email} → company [{comp.id}] {comp.name}")
+    else:
+        print(f"  User [{u.id}] {u.email} → NO COMPANY")
 
 # Sample items
 print("\n=== First 5 items ===")

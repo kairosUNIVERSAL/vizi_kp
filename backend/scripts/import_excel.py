@@ -29,11 +29,8 @@ logger = logging.getLogger(__name__)
 from app.database import SessionLocal
 from app.models import PriceItem, Category, Company, User
 
-# Path to the Excel file (relative to where script runs from)
-EXCEL_PATH = os.path.join(os.path.dirname(__file__), '..', '..', 'price_list_ceiling.xlsx')
-# Fallback absolute path for local dev
-if not os.path.exists(EXCEL_PATH):
-    EXCEL_PATH = r"c:\Assensio99\Code stuf\KP_LIGHT_VISO\price_list_ceiling.xlsx"
+# Path to the Excel file (same directory as this script)
+EXCEL_PATH = os.path.join(os.path.dirname(__file__), 'price_list_ceiling.xlsx')
 
 
 def slugify(text: str) -> str:

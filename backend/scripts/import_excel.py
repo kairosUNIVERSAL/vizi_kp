@@ -200,72 +200,70 @@ def import_price_list():
         wb = openpyxl.load_workbook(EXCEL_PATH, data_only=True)
         logger.info(f"Sheets found: {wb.sheetnames}")
 
-        # Find company
-        user = db.query(User).first()
-        if not user or not user.company:
-            logger.error("No user/company found in database. Cannot import.")
+        # Find ALL companies
+        from app.models import Company
+        companies = db.query(Company).all()
+        if not companies:
+            logger.error("No companies found in database. Cannot import.")
             return
 
-        company_id = user.company.id
-        logger.info(f"Importing for company: {user.company.name} (ID: {company_id})")
+        for company in companies:
+            company_id = company.id
+            logger.info(f"\n{'='*50}")
+            logger.info(f"Importing for company: {company.name} (ID: {company_id})")
 
-        # ── Cleanup: deactivate ALL old items (safe for FK references in estimates) ──
-        deactivated = db.query(PriceItem).filter(
-            PriceItem.company_id == company_id
-        ).update({"is_active": False})
-        db.commit()
-        logger.info(f"Deactivated {deactivated} old price items")
+            # ── Cleanup: deactivate ALL old items (safe for FK references in estimates) ──
+            deactivated = db.query(PriceItem).filter(
+                PriceItem.company_id == company_id
+            ).update({"is_active": False})
+            db.commit()
+            logger.info(f"Deactivated {deactivated} old price items")
 
-        # Delete categories with no linked estimate items (orphans from old seed)
-        from sqlalchemy import func, and_
-        from app.models import EstimateItem
-        orphan_cats = (
-            db.query(Category)
-            .outerjoin(PriceItem, PriceItem.category_id == Category.id)
-            .outerjoin(EstimateItem, EstimateItem.price_item_id == PriceItem.id)
-            .group_by(Category.id)
-            .having(func.count(EstimateItem.id) == 0)
-            .all()
-        )
-        for cat in orphan_cats:
-            # Delete price items in this category first
-            db.query(PriceItem).filter(PriceItem.category_id == cat.id).delete()
-            db.delete(cat)
-        db.commit()
-        if orphan_cats:
-            logger.info(f"Deleted {len(orphan_cats)} orphaned categories: {[c.name for c in orphan_cats]}")
+            # Delete items with no linked estimate items (orphans)
+            from app.models import EstimateItem
+            orphan_items = (
+                db.query(PriceItem)
+                .outerjoin(EstimateItem, EstimateItem.price_item_id == PriceItem.id)
+                .filter(PriceItem.company_id == company_id, EstimateItem.id == None)
+                .all()
+            )
+            for item in orphan_items:
+                db.delete(item)
+            db.commit()
+            if orphan_items:
+                logger.info(f"Deleted {len(orphan_items)} orphaned items")
 
-        # ── Business rule: 4 categories (one per sheet) ──
-        # Услуги (is_equipment=false), rest (is_equipment=true)
-        SHEET_CONFIG = {
-            "полотна":       {"category_name": "Полотна",       "is_equipment": True},
-            "профили":       {"category_name": "Профили",       "is_equipment": True},
-            "услуги":        {"category_name": "Услуги",        "is_equipment": False},
-            "оборудование":  {"category_name": "Оборудование",  "is_equipment": True},
-        }
+            # ── Business rule: 4 categories (one per sheet) ──
+            # Услуги (is_equipment=false), rest (is_equipment=true)
+            SHEET_CONFIG = {
+                "полотна":       {"category_name": "Полотна",       "is_equipment": True},
+                "профили":       {"category_name": "Профили",       "is_equipment": True},
+                "услуги":        {"category_name": "Услуги",        "is_equipment": False},
+                "оборудование":  {"category_name": "Оборудование",  "is_equipment": True},
+            }
 
-        # Process each sheet
-        for sheet_name in wb.sheetnames:
-            ws = wb[sheet_name]
-            logger.info(f"Processing sheet: {sheet_name} ({ws.max_row} rows)")
+            # Process each sheet
+            for sheet_name in wb.sheetnames:
+                ws = wb[sheet_name]
+                logger.info(f"Processing sheet: {sheet_name} ({ws.max_row} rows)")
 
-            config = SHEET_CONFIG.get(sheet_name.lower())
-            if not config:
-                logger.warning(f"  Unknown sheet '{sheet_name}', skipping")
-                continue
+                config = SHEET_CONFIG.get(sheet_name.lower())
+                if not config:
+                    logger.warning(f"  Unknown sheet '{sheet_name}', skipping")
+                    continue
 
-            target_category = get_or_create_category(db, config["category_name"], config["is_equipment"])
+                target_category = get_or_create_category(db, config["category_name"], config["is_equipment"])
 
-            # Read header row to determine column layout
-            header = [str(c).strip().lower() if c else "" for c in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
-            has_category_col = "категория" in header
+                # Read header row to determine column layout
+                header = [str(c).strip().lower() if c else "" for c in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
+                has_category_col = "категория" in header
 
-            if has_category_col:
-                import_categorized_sheet(db, ws, company_id, target_category, sheet_name)
-            else:
-                import_simple_sheet(db, ws, company_id, target_category, sheet_name)
+                if has_category_col:
+                    import_categorized_sheet(db, ws, company_id, target_category, sheet_name)
+                else:
+                    import_simple_sheet(db, ws, company_id, target_category, sheet_name)
 
-        logger.info("Import completed successfully!")
+        logger.info("\nImport completed successfully for all companies!")
 
     except Exception as e:
         logger.exception(f"Error importing excel: {e}")

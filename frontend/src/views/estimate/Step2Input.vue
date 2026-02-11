@@ -163,21 +163,57 @@
               </div>
             </div>
 
-            <!-- Quick Add Button -->
-            <button 
-                @click="openQuickAdd(idx)"
-                class="w-full mt-4 py-2.5 border-2 border-dashed border-blue-200 rounded-xl text-xs font-bold text-blue-500 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center justify-center gap-2"
-            >
-                <div class="bg-blue-500 text-white rounded-full p-0.5">
-                  <PhPlus :size="12" weight="bold" />
-                </div>
-                Добавить позицию
-            </button>
+            <div class="flex gap-2 mt-4">
+                <!-- Quick Add -->
+                <button 
+                    @click="openQuickAdd(idx)"
+                    class="flex-1 py-2.5 border-2 border-dashed border-blue-200 rounded-xl text-xs font-bold text-blue-500 bg-blue-50/50 hover:bg-blue-50 hover:border-blue-300 transition-all flex items-center justify-center gap-2"
+                >
+                    <div class="bg-blue-500 text-white rounded-full p-0.5">
+                      <PhPlus :size="12" weight="bold" />
+                    </div>
+                    Позиция
+                </button>
+
+                <!-- Voice Add -->
+                <button 
+                    @click="toggleRoomRecording(idx)"
+                    :class="[
+                        'flex-1 py-2.5 border-2 border-dashed rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2',
+                        recordingRoomIdx === idx
+                            ? 'border-red-300 bg-red-50 text-red-600 animate-pulse'
+                            : 'border-indigo-200 text-indigo-600 bg-indigo-50/50 hover:bg-indigo-50 hover:border-indigo-300'
+                    ]"
+                >
+                    <template v-if="processingRoomIdx === idx">
+                        <span class="animate-spin">⏳</span>
+                    </template>
+                    <template v-else-if="recordingRoomIdx === idx">
+                        <div class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                        Стоп
+                    </template>
+                    <template v-else>
+                        <PhMicrophone :size="18" weight="fill" />
+                        Голос
+                    </template>
+                </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
     
+    <!-- Manual Add Room -->
+    <div class="mt-4 mb-6">
+        <button 
+            @click="addNewRoom"
+            class="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl font-bold text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+        >
+            <PhPlus :size="20" weight="bold" />
+            Добавить новую комнату вручную
+        </button>
+    </div>
+
     <!-- Navigation Buttons (Fixed on Mobile) -->
     <div class="flex flex-col sm:flex-row justify-between gap-3 pt-4 border-t">
       <button @click="$emit('prev')" class="btn btn-secondary order-2 sm:order-1">
@@ -258,11 +294,13 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onUnmounted } from 'vue'
 import { useEstimateStore } from '@/stores/estimate'
 import { usePriceStore } from '@/stores/price'
-import { PhTrash, PhX, PhPlus } from '@phosphor-icons/vue'
+import { PhTrash, PhX, PhPlus, PhMicrophone } from '@phosphor-icons/vue'
 import VoiceRecorder from '@/components/input/VoiceRecorder.vue'
+import transcribeService from '@/services/transcribeService'
+import estimateService from '@/services/estimateService'
 import ItemAutocomplete from '@/components/input/ItemAutocomplete.vue'
 import ItemSearchModal from '@/components/input/ItemSearchModal.vue'
 import PriceItemModal from '@/views/price/PriceItemModal.vue'
@@ -431,6 +469,89 @@ const addItemToRoom = (selectedItem) => {
 priceStore.fetchCategories()
 
 const formatPrice = (val) => new Intl.NumberFormat('ru-RU').format(val || 0)
+
+// --- Added for Step 2 Room Recording & Manual Add ---
+const recordingRoomIdx = ref(-1)
+const processingRoomIdx = ref(-1)
+let roomMediaRecorder = null
+let roomAudioChunks = []
+
+const addNewRoom = () => {
+    const name = prompt("Введите название комнаты:", "Новая комната")
+    if (name) {
+        estimateStore.addRoom(name)
+        const newIdx = estimateStore.rooms.length - 1
+        if (newIdx >= 0) expandedRooms.add(newIdx)
+    }
+}
+
+const toggleRoomRecording = async (idx) => {
+    if (recordingRoomIdx.value === idx) {
+        stopRoomRecording()
+    } else {
+        if (recordingRoomIdx.value !== -1) stopRoomRecording()
+        await startRoomRecording(idx)
+    }
+}
+
+const startRoomRecording = async (idx) => {
+    roomAudioChunks = []
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        let mimeType = 'audio/webm'
+        if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus'
+        
+        roomMediaRecorder = new MediaRecorder(stream, { mimeType })
+        roomMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) roomAudioChunks.push(e.data) }
+        roomMediaRecorder.onstop = async () => {
+            stream.getTracks().forEach(t => t.stop())
+            const blob = new Blob(roomAudioChunks, { type: mimeType })
+            await processRoomAudio(blob)
+        }
+        roomMediaRecorder.start()
+        recordingRoomIdx.value = idx
+    } catch (err) {
+        alert('Ошибка доступа к микрофону: ' + err.message)
+    }
+}
+
+const stopRoomRecording = () => {
+    if (roomMediaRecorder && roomMediaRecorder.state !== 'inactive') {
+        processingRoomIdx.value = recordingRoomIdx.value // save for processing phase
+        roomMediaRecorder.stop()
+    }
+    recordingRoomIdx.value = -1
+}
+
+const processRoomAudio = async (blob) => {
+    const rIdx = processingRoomIdx.value
+    processingRoomIdx.value = rIdx // keep showing spinner
+    try {
+        const text = await transcribeService.transcribe(blob)
+        if (!text) return
+        
+        const res = await estimateService.parseTranscript(text)
+        if (res.rooms?.length === 1 && rIdx > -1 && estimateStore.rooms[rIdx]) {
+            // Contextual override: if 1 room parsed, assume it's for current room
+            res.rooms[0].name = estimateStore.rooms[rIdx].name
+        }
+        
+        if (res.rooms?.length > 0) {
+            estimateStore.addParsedRooms(res.rooms)
+            handleParseResult(res)
+        } else {
+            alert('Не удалось распознать позиции.')
+        }
+    } catch (e) {
+        alert('Ошибка: ' + (e.response?.data?.detail || e.message))
+    } finally {
+        processingRoomIdx.value = -1
+    }
+}
+
+onUnmounted(() => {
+    if (roomMediaRecorder && roomMediaRecorder.state !== 'inactive') roomMediaRecorder.stop()
+})
 
 defineEmits(['next', 'prev'])
 </script>

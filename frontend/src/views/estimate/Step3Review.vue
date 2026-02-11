@@ -180,7 +180,7 @@
 </template>
 
 <script setup>
-import { computed, ref, toRefs } from 'vue'
+import { computed, ref, toRefs, onUnmounted } from 'vue'
 import { useEstimateStore } from '@/stores/estimate'
 import { PhMinus, PhPlus, PhX, PhMicrophone } from '@phosphor-icons/vue'
 import transcribeService from '@/services/transcribeService'

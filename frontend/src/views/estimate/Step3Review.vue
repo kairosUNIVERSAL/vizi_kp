@@ -121,14 +121,41 @@
             </div>
         </div>
 
-        <!-- Add Room Button -->
-        <button 
-            @click="addNewRoom"
-            class="w-full mt-6 py-4 border-2 border-dashed border-gray-300 rounded-xl font-bold text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
-        >
-            <PhPlus :size="20" weight="bold" />
-            Добавить новую комнату
-        </button>
+        <!-- Add Room Actions -->
+        <div class="space-y-3 mt-6">
+            <!-- Voice Add Room (Global) -->
+            <button 
+                @click="toggleRoomRecording"
+                :class="[
+                    'w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2',
+                    isRecordingRoom 
+                        ? 'bg-red-50 text-red-600 border border-red-200 animate-pulse' 
+                        : 'bg-indigo-600 text-white shadow-lg hover:bg-indigo-700'
+                ]"
+            >
+                <template v-if="isProcessingRoom">
+                    <span class="animate-spin">⏳</span>
+                    Обработка...
+                </template>
+                <template v-else-if="isRecordingRoom">
+                    <div class="w-2 h-2 bg-red-600 rounded-full animate-pulse"></div>
+                    Запись... (нажмите для остановки)
+                </template>
+                <template v-else>
+                    <PhMicrophone :size="20" weight="fill" />
+                    Добавить комнату голосом
+                </template>
+            </button>
+
+            <!-- Manual Add Room -->
+            <button 
+                @click="addNewRoom"
+                class="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl font-bold text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+            >
+                <PhPlus :size="20" weight="bold" />
+                Добавить новую комнату вручную
+            </button>
+        </div>
 
         <!-- Discount Inputs -->
         <div class="mt-8 pt-6 border-t border-gray-200">

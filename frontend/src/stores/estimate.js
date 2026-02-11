@@ -183,6 +183,29 @@ export const useEstimateStore = defineStore('estimate', () => {
         return data
     }
 
+    const addParsedRooms = (newRooms) => {
+        if (!newRooms || !newRooms.length) return
+
+        newRooms.forEach(room => {
+            let name = room.name
+            // Ensure unique name
+            let counter = 2
+            const originalName = name
+            while (rooms.value.some(r => r.name === name)) {
+                name = `${originalName} ${counter}`
+                counter++
+            }
+
+            // Add as new room
+            rooms.value.push({
+                ...room,
+                name: name,
+                items: room.items ? room.items.map(i => ({ ...i })) : []
+            })
+        })
+        recalculate()
+    }
+
     const fetchEstimates = async () => {
         const data = await estimateService.getEstimates()
         estimates.value = data
@@ -207,6 +230,7 @@ export const useEstimateStore = defineStore('estimate', () => {
         updateEstimate,
         saveDraft,
         parseTranscript,
+        addParsedRooms,
         fetchEstimates
     }
 })

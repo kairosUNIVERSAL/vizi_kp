@@ -511,7 +511,8 @@ const startRoomRecording = async (idx) => {
         roomMediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) roomAudioChunks.push(e.data) }
         roomMediaRecorder.onstop = async () => {
             stream.getTracks().forEach(t => t.stop())
-            const blob = new Blob(roomAudioChunks, { type: mimeType })
+            // Use plain audio/webm for best compatibility with backend whitelist
+            const blob = new Blob(roomAudioChunks, { type: 'audio/webm' })
             await processRoomAudio(blob)
         }
         roomMediaRecorder.start()

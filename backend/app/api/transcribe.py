@@ -17,14 +17,13 @@ async def transcribe_audio(
     Accepts audio files in common formats (webm, mp3, wav, ogg).
     Returns the transcribed text.
     """
-    # Validate file type
-    allowed_types = ["audio/webm", "audio/mp3", "audio/mpeg", "audio/wav", "audio/ogg", "audio/m4a"]
+    # Validate file type (flexible check for audio/*)
     content_type = audio.content_type or "audio/webm"
     
-    if content_type not in allowed_types:
+    if not content_type.startswith("audio/"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unsupported audio format: {content_type}. Allowed: {', '.join(allowed_types)}"
+            detail=f"Unsupported file format: {content_type}. Please upload an audio file."
         )
     
     try:

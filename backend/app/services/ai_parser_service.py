@@ -323,7 +323,8 @@ class AIParserService:
 
         for room in data.get("rooms", []):
             room_subtotal = 0
-            total_area += room.get("area", 0)
+            area_val = room.get("area")
+            total_area += float(area_val) if area_val is not None else 0
             for item in room.get("items", []):
                 if item.get("price_item_id") and item["price_item_id"] in items_map:
                     price_item = items_map[item["price_item_id"]]
@@ -331,7 +332,9 @@ class AIParserService:
                     item["name"] = price_item.name
                     item["unit"] = price_item.unit
                 
-                item["sum"] = round(item.get("quantity", 0) * item.get("price", 0), 2)
+                qty = item.get("quantity")
+                price = item.get("price")
+                item["sum"] = round((float(qty) if qty is not None else 0) * (float(price) if price is not None else 0), 2)
                 room_subtotal += item["sum"]
             
             room["subtotal"] = room_subtotal

@@ -203,14 +203,29 @@
       </div>
     </div>
     
-    <!-- Manual Add Room -->
+    <!-- Voice Add Room (Global/New Section) -->
     <div class="mt-4 mb-6">
         <button 
-            @click="addNewRoom"
-            class="w-full py-4 border-2 border-dashed border-gray-300 rounded-xl font-bold text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-all flex items-center justify-center gap-2"
+            @click="toggleRoomRecording(-2)"
+            :class="[
+                'w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border-2 border-dashed',
+                recordingRoomIdx === -2 
+                    ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' 
+                    : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300'
+            ]"
         >
-            <PhPlus :size="20" weight="bold" />
-            Добавить новую комнату вручную
+            <template v-if="processingRoomIdx === -2">
+                <span class="animate-spin text-xl">⏳</span>
+                <span>Обработка...</span>
+            </template>
+            <template v-else-if="recordingRoomIdx === -2">
+                <div class="w-2 h-2 bg-red-600 rounded-full animate-pulse pr-2"></div>
+                Запись... (нажмите для остановки)
+            </template>
+            <template v-else>
+                <PhMicrophone :size="24" weight="fill" />
+                Добавить комнату голосом
+            </template>
         </button>
     </div>
 
@@ -476,15 +491,6 @@ const processingRoomIdx = ref(-1)
 let roomMediaRecorder = null
 let roomAudioChunks = []
 
-const addNewRoom = () => {
-    const name = prompt("Введите название комнаты:", "Новая комната")
-    if (name) {
-        estimateStore.addRoom(name)
-        const newIdx = estimateStore.rooms.length - 1
-        if (newIdx >= 0) expandedRooms.add(newIdx)
-    }
-}
-
 const toggleRoomRecording = async (idx) => {
     if (recordingRoomIdx.value === idx) {
         stopRoomRecording()
@@ -525,22 +531,31 @@ const stopRoomRecording = () => {
 
 const processRoomAudio = async (blob) => {
     const rIdx = processingRoomIdx.value
-    processingRoomIdx.value = rIdx // keep showing spinner
+    // processingRoomIdx is already set in stopRoomRecording
     try {
         const text = await transcribeService.transcribe(blob)
         if (!text) return
         
         const res = await estimateService.parseTranscript(text)
-        if (res.rooms?.length === 1 && rIdx > -1 && estimateStore.rooms[rIdx]) {
-            // Contextual override: if 1 room parsed, assume it's for current room
+        
+        // Contextual override: if recording for an EXISTING room (rIdx >= 0) 
+        // and parser returned exactly 1 room, rename that 1 room to our target.
+        if (res.rooms?.length === 1 && rIdx >= 0 && estimateStore.rooms[rIdx]) {
             res.rooms[0].name = estimateStore.rooms[rIdx].name
         }
         
         if (res.rooms?.length > 0) {
             estimateStore.addParsedRooms(res.rooms)
             handleParseResult(res)
+            
+            // If we added a whole section/rooms, scroll to bottom
+            if (rIdx === -2) {
+                setTimeout(() => {
+                    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+                }, 100)
+            }
         } else {
-            alert('Не удалось распознать позиции.')
+            alert('Не удалось распознать комнаты или позиции.')
         }
     } catch (e) {
         alert('Ошибка: ' + (e.response?.data?.detail || e.message))

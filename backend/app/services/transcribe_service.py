@@ -103,6 +103,8 @@ class TranscribeService:
                 json=payload
             )
             
+            logger.info(f"[TRANSCRIBE] API Request sent (model: {self.model})")
+            
             if response.status_code != 200:
                 error_body = response.text
                 logger.error(f"[TRANSCRIBE] Attempt {attempt} - API Error ({response.status_code}): {error_body[:200]}")
@@ -116,7 +118,7 @@ class TranscribeService:
 
             try:
                 transcript = data["choices"][0]["message"]["content"]
-                logger.info(f"[TRANSCRIBE] Attempt {attempt} - Success: {transcript[:100]}...")
+                logger.info(f"[TRANSCRIBE] Attempt {attempt} - Success. FULL TEXT: ---{transcript}---")
                 return transcript.strip()
             except (KeyError, IndexError) as e:
                  logger.error(f"[TRANSCRIBE] Unexpected API response format: {data}")

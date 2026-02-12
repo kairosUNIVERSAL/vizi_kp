@@ -27,6 +27,10 @@ class AIParserService:
         logger.info(f"[PARSER] API key present: {bool(self.api_key)}, model: {self.model}")
         logger.info(f"[PARSER] Transcript: {transcript[:200]}...")
         
+        if not transcript or not transcript.strip():
+            logger.warning("[PARSER] Empty transcript provided")
+            return {"rooms": [], "unknown_items": [], "total_area": 0, "total_sum": 0}
+
         # If API key not configured, use fallback regex parser
         if not self.api_key:
             logger.warning("[PARSER] No API key — using FALLBACK regex parser")
@@ -40,7 +44,8 @@ class AIParserService:
         try:
             response_text, usage = self._call_openrouter(prompt)
             logger.info(f"[PARSER] AI response length: {len(response_text)} chars")
-            logger.info(f"[PARSER] AI raw response: {response_text[:500]}")
+            # Always log the raw response for debugging recognition issues
+            logger.info(f"[PARSER] AI raw response: ---{response_text}---")
             logger.info(f"[PARSER] Usage: {usage}")
             result = self._parse_response(response_text, price_items)
             

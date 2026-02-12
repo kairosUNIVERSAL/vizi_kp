@@ -165,20 +165,26 @@ export const useEstimateStore = defineStore('estimate', () => {
         }
     }
 
-    const parseTranscript = async (transcript) => {
-        const data = await estimateService.parseTranscript(transcript)
-
-        if (data.rooms) {
-            data.rooms.forEach(newRoom => {
-                let room = rooms.value.find(r => r.name === newRoom.name)
-                if (!room) {
-                    rooms.value.push(newRoom)
-                } else {
-                    if (newRoom.area) room.area = newRoom.area
+    const mergeParsedRooms = (newRooms) => {
+        if (!newRooms) return
+        newRooms.forEach(newRoom => {
+            let room = rooms.value.find(r => r.name === newRoom.name)
+            if (!room) {
+                rooms.value.push({ ...newRoom, items: newRoom.items ? [...newRoom.items] : [] })
+            } else {
+                if (newRoom.area) room.area = newRoom.area
+                if (newRoom.items) {
                     room.items.push(...newRoom.items)
                 }
-            })
-            recalculate()
+            }
+        })
+        recalculate()
+    }
+
+    const parseTranscript = async (transcript) => {
+        const data = await estimateService.parseTranscript(transcript)
+        if (data.rooms) {
+            mergeParsedRooms(data.rooms)
         }
         return data
     }
@@ -231,6 +237,7 @@ export const useEstimateStore = defineStore('estimate', () => {
         saveDraft,
         parseTranscript,
         addParsedRooms,
+        mergeParsedRooms,
         fetchEstimates
     }
 })

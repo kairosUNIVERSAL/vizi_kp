@@ -545,15 +545,19 @@ const processRoomAudio = async (blob) => {
         }
         
         if (res.rooms?.length > 0) {
-            estimateStore.addParsedRooms(res.rooms)
-            handleParseResult(res)
-            
-            // If we added a whole section/rooms, scroll to bottom
-            if (rIdx === -2) {
+            if (rIdx >= 0) {
+                // For existing room: merge items
+                estimateStore.mergeParsedRooms(res.rooms)
+            } else {
+                // For new room/global: add as new
+                estimateStore.addParsedRooms(res.rooms)
+                
+                // If we added a whole section/rooms, scroll to bottom
                 setTimeout(() => {
                     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
                 }, 100)
             }
+            handleParseResult(res)
         } else {
             alert('Не удалось распознать комнаты или позиции.')
         }

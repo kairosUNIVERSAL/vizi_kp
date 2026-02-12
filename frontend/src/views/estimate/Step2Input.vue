@@ -1,5 +1,11 @@
 <template>
-  <div class="space-y-4 md:space-y-6">
+  <div class="space-y-4 md:space-y-6 relative">
+    <!-- Dark Overlay during recording -->
+    <div 
+        v-if="recordingRoomIdx !== -1" 
+        class="fixed inset-0 bg-black/60 z-30 transition-opacity duration-300"
+        @click="stopRoomRecording"
+    ></div>
     <!-- Header with mode toggle -->
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
       <h2 class="text-lg md:text-xl font-bold">Замер</h2>
@@ -106,7 +112,10 @@
         <div 
           v-for="(room, idx) in estimateStore.rooms" 
           :key="idx" 
-          class="bg-gray-50 rounded-xl overflow-hidden"
+          :class="[
+            'bg-gray-50 rounded-xl transition-all duration-300',
+            recordingRoomIdx === idx ? 'z-40 relative ring-4 ring-blue-400 shadow-2xl scale-105' : 'overflow-hidden'
+          ]"
         >
           <!-- Room Headers and Items -->
           <div 
@@ -208,10 +217,11 @@
         <button 
             @click="toggleRoomRecording(-2)"
             :class="[
-                'w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border-2 border-dashed',
+                'w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border-2 border-dashed relative',
                 recordingRoomIdx === -2 
-                    ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' 
-                    : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300'
+                    ? 'bg-red-50 text-red-600 border-red-200 animate-pulse z-40 shadow-xl scale-105' 
+                    : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300',
+                recordingRoomIdx !== -1 && recordingRoomIdx !== -2 ? 'opacity-20 pointer-events-none' : ''
             ]"
         >
             <template v-if="processingRoomIdx === -2">
@@ -235,11 +245,13 @@
         ← Назад
       </button>
       <button 
-        @click="$emit('next')" 
-        class="btn btn-primary btn-lg order-1 sm:order-2" 
-        :disabled="estimateStore.rooms.length === 0"
+        @click="handleNextClick" 
+        class="btn btn-primary btn-lg order-1 sm:order-2 transition-all duration-300" 
+        :class="{ 'opacity-50 cursor-not-allowed grayscale': isRecordingOrProcessing }"
+        :disabled="estimateStore.rooms.length === 0 && !isRecordingOrProcessing"
       >
-        Далее →
+        <span v-if="processingRoomIdx !== -1">Обработка...</span>
+        <span v-else>Далее →</span>
       </button>
     </div>
 
@@ -341,6 +353,21 @@ const activeUnknownIdx = ref(-1)
 // Quick Add flow
 const showQuickAdd = ref(false)
 const activeRoomIdx = ref(-1)
+
+const isRecordingOrProcessing = computed(() => recordingRoomIdx.value !== -1 || processingRoomIdx.value !== -1)
+
+const handleNextClick = () => {
+    if (processingRoomIdx.value !== -1) return // Block during processing
+    
+    if (recordingRoomIdx.value !== -1) {
+        // If recording, stop it
+        stopRoomRecording()
+        return
+    }
+    
+    // Normal next behavior
+    emit('next')
+}
 
 // Watch for store changes to detect unknown items in parse result
 // Since estimateStore.parseTranscript returns the result, we can capture it there

@@ -1,10 +1,10 @@
 <template>
   <div class="space-y-4 md:space-y-6 relative">
-    <!-- Dark Overlay during recording -->
+    <!-- Dark Overlay during recording OR processing -->
     <div 
-        v-if="recordingRoomIdx !== -1" 
-        class="fixed inset-0 bg-black/60 z-30 transition-opacity duration-300"
-        @click="stopRoomRecording"
+        v-if="recordingRoomIdx !== -1 || processingRoomIdx !== -1" 
+        class="fixed inset-0 bg-black/60 z-[50] transition-opacity duration-300"
+        @click="recordingRoomIdx !== -1 ? stopRoomRecording() : null"
     ></div>
     <!-- Header with mode toggle -->
     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
@@ -114,7 +114,9 @@
           :key="idx" 
           :class="[
             'bg-gray-50 rounded-xl transition-all duration-300',
-            recordingRoomIdx === idx ? 'z-40 relative ring-4 ring-blue-400 shadow-2xl scale-105' : 'overflow-hidden'
+            (recordingRoomIdx === idx || processingRoomIdx === idx) 
+                ? 'z-[60] relative ring-4 ring-blue-400 shadow-2xl scale-105' 
+                : 'overflow-hidden'
           ]"
         >
           <!-- Room Headers and Items -->
@@ -136,6 +138,7 @@
               <button 
                 @click.stop="removeRoom(idx)" 
                 class="p-1 text-gray-400 hover:text-red-500 transition-colors z-10"
+                :class="{ 'opacity-30 pointer-events-none': isRecordingOrProcessing }"
                 title="Удалить комнату"
               >
                   <PhTrash :size="18" />
@@ -166,6 +169,8 @@
                   <button 
                     @click="removeItem(idx, i_idx)"
                     class="text-gray-300 hover:text-red-500"
+                    :disabled="isRecordingOrProcessing"
+                    :class="{ 'opacity-30 cursor-not-allowed': isRecordingOrProcessing }"
                   >
                     <PhX :size="16" />
                   </button>
@@ -218,11 +223,12 @@
             @click="toggleRoomRecording(-2)"
             :class="[
                 'w-full py-4 rounded-xl font-bold transition-all flex items-center justify-center gap-2 border-2 border-dashed relative',
-                recordingRoomIdx === -2 
-                    ? 'bg-red-50 text-red-600 border-red-200 animate-pulse z-40 shadow-xl scale-105' 
+                (recordingRoomIdx === -2 || processingRoomIdx === -2)
+                    ? 'bg-red-50 text-red-600 border-red-200 animate-pulse z-[60] shadow-xl scale-105' 
                     : 'bg-indigo-50 text-indigo-600 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300',
                 recordingRoomIdx !== -1 && recordingRoomIdx !== -2 ? 'opacity-20 pointer-events-none' : ''
             ]"
+            :disabled="processingRoomIdx !== -1 && processingRoomIdx !== -2"
         >
             <template v-if="processingRoomIdx === -2">
                 <span class="animate-spin text-xl">⏳</span>

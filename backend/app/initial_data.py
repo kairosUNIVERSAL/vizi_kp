@@ -1,6 +1,6 @@
 import logging
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Set, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -80,6 +80,60 @@ FOCUS_GROUP_ACCOUNTS = [
             "warranty_work": 1,
             "validity_days": 7,
             "discount": Decimal("0.00"),
+        },
+    },
+    {
+        "email": "focus.dispatch@kp.local",
+        "password": "FocusUser2026!",
+        "is_admin": False,
+        "company": {
+            "name": "Focus Dispatch Center",
+            "phone": "+7 (901) 100-00-05",
+            "city": "Yekaterinburg",
+            "address": "Mira 7",
+            "website": "https://dispatch-demo.local",
+            "messenger_type": "whatsapp",
+            "messenger_contact": "+79011000005",
+            "warranty_material": 8,
+            "warranty_work": 1,
+            "validity_days": 5,
+            "discount": Decimal("2.00"),
+        },
+    },
+    {
+        "email": "focus.measure@kp.local",
+        "password": "FocusUser2026!",
+        "is_admin": False,
+        "company": {
+            "name": "Focus Measure Unit",
+            "phone": "+7 (901) 100-00-06",
+            "city": "Samara",
+            "address": "Molodogvardeyskaya 20",
+            "website": "https://measure-demo.local",
+            "messenger_type": "telegram",
+            "messenger_contact": "@focus_measure",
+            "warranty_material": 11,
+            "warranty_work": 2,
+            "validity_days": 12,
+            "discount": Decimal("4.00"),
+        },
+    },
+    {
+        "email": "focus.b2b@kp.local",
+        "password": "FocusUser2026!",
+        "is_admin": False,
+        "company": {
+            "name": "Focus B2B Channel",
+            "phone": "+7 (901) 100-00-07",
+            "city": "Nizhny Novgorod",
+            "address": "Belinskogo 32",
+            "website": "https://b2b-demo.local",
+            "messenger_type": "telegram",
+            "messenger_contact": "@focus_b2b",
+            "warranty_material": 18,
+            "warranty_work": 4,
+            "validity_days": 20,
+            "discount": Decimal("6.00"),
         },
     },
 ]
@@ -185,50 +239,63 @@ def _company_has_legacy_mock_items(db: Session, company_id: int) -> bool:
     return bool(names) and names == LEGACY_MOCK_ITEM_NAMES
 
 
-def _clone_price_items_from_source(db: Session, source_company_id: int, target_company_id: int) -> None:
-    source_items = db.query(PriceItem).filter(PriceItem.company_id == source_company_id).all()
-    if not source_items:
-        return
-
-    db.query(PriceItem).filter(PriceItem.company_id == target_company_id).delete(synchronize_session=False)
-
-    for item in source_items:
-        db.add(
-            PriceItem(
-                company_id=target_company_id,
-                category_id=item.category_id,
-                name=item.name,
-                unit=item.unit,
-                price=item.price,
-                synonyms=item.synonyms,
-                is_active=item.is_active,
-                is_custom=item.is_custom,
-            )
-        )
-
-    db.commit()
-    logger.info("Copied %s price items from source company_id=%s to company_id=%s", len(source_items), source_company_id, target_company_id)
-
-
-def _ensure_price_items(db: Session, company: Company, source_company_id: Optional[int]) -> None:
+def _build_source_signature(db: Session, source_company_id: Optional[int]) -> Set[Tuple]:
     if source_company_id is None:
-        logger.warning("No source admin price list found. Skipping price list seed for %s", company.id)
+        return set()
+
+    source_items = db.query(PriceItem).filter(PriceItem.company_id == source_company_id).all()
+    return {
+        (
+            item.category_id,
+            item.name,
+            item.unit,
+            str(item.price),
+            item.synonyms or "",
+            bool(item.is_active),
+            bool(item.is_custom),
+        )
+        for item in source_items
+    }
+
+
+def _company_matches_source_signature(items: list[PriceItem], source_signature: Set[Tuple]) -> bool:
+    if not source_signature:
+        return False
+    if len(items) != len(source_signature):
+        return False
+
+    company_signature = {
+        (
+            item.category_id,
+            item.name,
+            item.unit,
+            str(item.price),
+            item.synonyms or "",
+            bool(item.is_active),
+            bool(item.is_custom),
+        )
+        for item in items
+    }
+    return company_signature == source_signature
+
+
+def _cleanup_seeded_price_items(db: Session, company: Company, source_signature: Set[Tuple]) -> None:
+    items = db.query(PriceItem).filter(PriceItem.company_id == company.id).all()
+    if not items:
         return
 
-    if company.id == source_company_id:
+    should_cleanup = _company_has_legacy_mock_items(db, company.id) or _company_matches_source_signature(items, source_signature)
+    if not should_cleanup:
         return
 
-    items_count = db.query(PriceItem).filter(PriceItem.company_id == company.id).count()
-    if items_count == 0:
-        _clone_price_items_from_source(db, source_company_id, company.id)
-        return
-
-    if _company_has_legacy_mock_items(db, company.id):
-        _clone_price_items_from_source(db, source_company_id, company.id)
+    db.query(PriceItem).filter(PriceItem.company_id == company.id).delete(synchronize_session=False)
+    db.commit()
+    logger.info("Cleared seeded price items for focus account company_id=%s", company.id)
 
 
 def init_db(db: Session) -> None:
     source_company_id = _find_source_company_id(db)
+    source_signature = _build_source_signature(db, source_company_id)
     if source_company_id:
         logger.info("Using source admin company_id=%s for focus-group price structure", source_company_id)
     else:
@@ -237,6 +304,6 @@ def init_db(db: Session) -> None:
     for account in FOCUS_GROUP_ACCOUNTS:
         user = _ensure_user(db, account)
         company = _ensure_company(db, user, account["company"])
-        _ensure_price_items(db, company, source_company_id)
+        _cleanup_seeded_price_items(db, company, source_signature)
 
     logger.info("Focus-group seed completed (%s accounts)", len(FOCUS_GROUP_ACCOUNTS))

@@ -8,6 +8,9 @@ These accounts are auto-created on backend startup by `backend/app/initial_data.
 | `focus.sales@kp.local` | `FocusUser2026!` | User | Focus Sales Studio (Saint Petersburg) |
 | `focus.ops@kp.local` | `FocusUser2026!` | User | Focus Operations Team (Kazan) |
 | `focus.newcomer@kp.local` | `FocusUser2026!` | User | Focus Newcomer Branch (Novosibirsk) |
+| `focus.dispatch@kp.local` | `FocusUser2026!` | User | Focus Dispatch Center (Yekaterinburg) |
+| `focus.measure@kp.local` | `FocusUser2026!` | User | Focus Measure Unit (Samara) |
+| `focus.b2b@kp.local` | `FocusUser2026!` | User | Focus B2B Channel (Nizhny Novgorod) |
 
 ## What differs between these accounts
 
@@ -21,8 +24,8 @@ These accounts are auto-created on backend startup by `backend/app/initial_data.
    - Warranty, discount, validity period, messenger and city differ across accounts.
    - This gives focus-group participants different starting scenarios.
 4. Price list structure:
-   - Focus accounts reuse the source admin company's real price list structure.
-   - No mock categories or mock positions are added.
+   - Focus accounts reuse the same category structure as the source admin company.
+   - Price items are empty by default for focus accounts (no copied and no mock positions).
 
 ## Logs for focus-group analysis
 

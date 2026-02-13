@@ -1,9 +1,44 @@
 from sqlalchemy.orm import Session, joinedload
-from app.models import PriceItem, Category
+from app.models import PriceItem, Category, User
 from app.schemas.price import PriceItemCreate, PriceItemUpdate
 from typing import List, Optional
 
+FOCUS_GROUP_EMAILS = {
+    "focus.admin@kp.local",
+    "focus.sales@kp.local",
+    "focus.ops@kp.local",
+    "focus.newcomer@kp.local",
+    "focus.dispatch@kp.local",
+    "focus.measure@kp.local",
+    "focus.b2b@kp.local",
+}
+
 class PriceService:
+    def _get_source_admin_category_ids(self, db: Session) -> List[int]:
+        admins = db.query(User).filter(User.is_admin == True).order_by(User.created_at.asc()).all()
+
+        for admin in admins:
+            if not admin.company or admin.email in FOCUS_GROUP_EMAILS:
+                continue
+            category_ids = [
+                row[0]
+                for row in db.query(PriceItem.category_id).filter(PriceItem.company_id == admin.company.id).distinct().all()
+            ]
+            if category_ids:
+                return category_ids
+
+        for admin in admins:
+            if not admin.company:
+                continue
+            category_ids = [
+                row[0]
+                for row in db.query(PriceItem.category_id).filter(PriceItem.company_id == admin.company.id).distinct().all()
+            ]
+            if category_ids:
+                return category_ids
+
+        return []
+
     def get_categories(self, db: Session, company_id: Optional[int] = None) -> List[Category]:
         if company_id is not None:
             company_category_ids = [
@@ -12,6 +47,10 @@ class PriceService:
             ]
             if company_category_ids:
                 return db.query(Category).filter(Category.id.in_(company_category_ids)).order_by(Category.sort_order, Category.id).all()
+
+            source_category_ids = self._get_source_admin_category_ids(db)
+            if source_category_ids:
+                return db.query(Category).filter(Category.id.in_(source_category_ids)).order_by(Category.sort_order, Category.id).all()
 
         return db.query(Category).order_by(Category.sort_order, Category.id).all()
     

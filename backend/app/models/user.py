@@ -20,4 +20,5 @@ class User(Base):
     
     # Relationships
     company = relationship("Company", back_populates="user", uselist=False)
+    activity_logs = relationship("ActivityLog", back_populates="user")
 

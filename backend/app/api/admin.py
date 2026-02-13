@@ -1,12 +1,13 @@
 """Admin API endpoints for user management and statistics."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import Any, List
+from typing import Any, List, Optional
 
 from app.api.deps import get_current_active_user, get_db
-from app.models import User, Company, Estimate
+from app.models import ActivityLog, Estimate, User
+from app.schemas.activity_log import ActivityLogResponse
 from app.schemas.user import UserCreate, UserResponse, UserAdminResponse
 from app.services.auth_service import auth_service
 
@@ -122,3 +123,22 @@ def get_admin_stats(
         "total_tokens_used": total_tokens,
         "total_api_cost": float(total_cost) if total_cost else 0
     }
+
+
+@router.get("/activity-logs", response_model=List[ActivityLogResponse])
+def list_activity_logs(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+    limit: int = Query(default=100, ge=1, le=500),
+    user_id: Optional[int] = None,
+    action: Optional[str] = None,
+) -> Any:
+    """Get recent activity logs (admin only)."""
+    query = db.query(ActivityLog)
+
+    if user_id is not None:
+        query = query.filter(ActivityLog.user_id == user_id)
+    if action:
+        query = query.filter(ActivityLog.action == action)
+
+    return query.order_by(ActivityLog.created_at.desc(), ActivityLog.id.desc()).limit(limit).all()

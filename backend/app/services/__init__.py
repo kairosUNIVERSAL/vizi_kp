@@ -3,3 +3,4 @@ from .price_service import price_service
 from .estimate_service import estimate_service
 from .ai_parser_service import ai_parser_service
 from .pdf_service import pdf_service
+from .activity_log_service import activity_log_service

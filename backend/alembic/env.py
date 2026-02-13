@@ -18,6 +18,7 @@ from app.models.estimate_room import EstimateRoom
 from app.models.estimate_item import EstimateItem
 from app.models.price_item import PriceItem
 from app.models.category import Category
+from app.models.activity_log import ActivityLog
 from app.config import settings
 
 target_metadata = Base.metadata

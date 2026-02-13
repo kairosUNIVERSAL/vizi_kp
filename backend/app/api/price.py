@@ -21,7 +21,8 @@ def get_categories(
     """
     Get all categories.
     """
-    return price_service.get_categories(db)
+    company_id = current_user.company.id if current_user.company else None
+    return price_service.get_categories(db, company_id)
 
 @router.get("/items", response_model=PriceItemListResponse)
 def get_items(

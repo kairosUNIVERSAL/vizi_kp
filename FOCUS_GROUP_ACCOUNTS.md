@@ -20,6 +20,9 @@ These accounts are auto-created on backend startup by `backend/app/initial_data.
 3. Preset company defaults:
    - Warranty, discount, validity period, messenger and city differ across accounts.
    - This gives focus-group participants different starting scenarios.
+4. Price list structure:
+   - Focus accounts reuse the source admin company's real price list structure.
+   - No mock categories or mock positions are added.
 
 ## Logs for focus-group analysis
 

@@ -4,8 +4,16 @@ from app.schemas.price import PriceItemCreate, PriceItemUpdate
 from typing import List, Optional
 
 class PriceService:
-    def get_categories(self, db: Session) -> List[Category]:
-        return db.query(Category).order_by(Category.sort_order).all()
+    def get_categories(self, db: Session, company_id: Optional[int] = None) -> List[Category]:
+        if company_id is not None:
+            company_category_ids = [
+                row[0]
+                for row in db.query(PriceItem.category_id).filter(PriceItem.company_id == company_id).distinct().all()
+            ]
+            if company_category_ids:
+                return db.query(Category).filter(Category.id.in_(company_category_ids)).order_by(Category.sort_order, Category.id).all()
+
+        return db.query(Category).order_by(Category.sort_order, Category.id).all()
     
     def get_items(self, db: Session, company_id: int, category_id: Optional[int] = None, active_only: bool = True) -> List[PriceItem]:
         query = db.query(PriceItem).options(joinedload(PriceItem.category)).filter(PriceItem.company_id == company_id)

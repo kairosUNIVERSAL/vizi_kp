@@ -1,11 +1,11 @@
 import logging
 from decimal import Decimal
-from typing import Dict
+from typing import Optional
 
 from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
-from app.models import Category, Company, PriceItem, User
+from app.models import Company, PriceItem, User
 
 logger = logging.getLogger(__name__)
 
@@ -84,54 +84,18 @@ FOCUS_GROUP_ACCOUNTS = [
     },
 ]
 
-CATEGORY_SEED = [
-    {"name": "PVC", "slug": "pvc", "is_equipment": False},
-    {"name": "Fabric", "slug": "fabric", "is_equipment": False},
-    {"name": "Profiles", "slug": "profiles", "is_equipment": False},
-    {"name": "Lighting", "slug": "lighting", "is_equipment": True},
-    {"name": "Works", "slug": "works", "is_equipment": False},
-    {"name": "Extra", "slug": "extra", "is_equipment": True},
-]
-
-PRICE_TEMPLATE = [
-    {"category_slug": "pvc", "name": "PVC Matte", "unit": "m2", "price": Decimal("520.00"), "synonyms": "pvc,matte,film"},
-    {"category_slug": "pvc", "name": "PVC Gloss", "unit": "m2", "price": Decimal("560.00"), "synonyms": "pvc,gloss"},
-    {"category_slug": "fabric", "name": "Fabric White", "unit": "m2", "price": Decimal("980.00"), "synonyms": "fabric,white"},
-    {"category_slug": "profiles", "name": "Wall Profile", "unit": "m", "price": Decimal("180.00"), "synonyms": "profile,wall"},
-    {"category_slug": "profiles", "name": "Shadow Profile", "unit": "m", "price": Decimal("1250.00"), "synonyms": "shadow,eurokraab"},
-    {"category_slug": "lighting", "name": "Spot Installation", "unit": "pcs", "price": Decimal("450.00"), "synonyms": "spot,light"},
-    {"category_slug": "lighting", "name": "Chandelier Installation", "unit": "pcs", "price": Decimal("1100.00"), "synonyms": "chandelier"},
-    {"category_slug": "works", "name": "Pipe Bypass", "unit": "pcs", "price": Decimal("350.00"), "synonyms": "pipe,bypass"},
-    {"category_slug": "works", "name": "Inner Corner", "unit": "pcs", "price": Decimal("0.00"), "synonyms": "corner,inner"},
-    {"category_slug": "extra", "name": "Delivery", "unit": "order", "price": Decimal("1500.00"), "synonyms": "delivery,logistics"},
-]
-
-
-def _ensure_categories(db: Session) -> Dict[str, Category]:
-    existing = {cat.slug: cat for cat in db.query(Category).all()}
-    created = 0
-
-    for order, payload in enumerate(CATEGORY_SEED):
-        cat = existing.get(payload["slug"])
-        if cat:
-            continue
-
-        cat = Category(
-            name=payload["name"],
-            slug=payload["slug"],
-            sort_order=order,
-            is_system=True,
-            is_equipment=payload["is_equipment"],
-        )
-        db.add(cat)
-        created += 1
-        existing[payload["slug"]] = cat
-
-    if created:
-        db.commit()
-        logger.info("Created %s system categories for focus accounts", created)
-
-    return {cat.slug: cat for cat in db.query(Category).all()}
+LEGACY_MOCK_ITEM_NAMES = {
+    "PVC Matte",
+    "PVC Gloss",
+    "Fabric White",
+    "Wall Profile",
+    "Shadow Profile",
+    "Spot Installation",
+    "Chandelier Installation",
+    "Pipe Bypass",
+    "Inner Corner",
+    "Delivery",
+}
 
 
 def _ensure_user(db: Session, account: dict) -> User:
@@ -192,40 +156,87 @@ def _ensure_company(db: Session, user: User, company_defaults: dict) -> Company:
     return company
 
 
-def _ensure_price_items(db: Session, company: Company, categories: Dict[str, Category]) -> None:
-    existing_items = db.query(PriceItem).filter(PriceItem.company_id == company.id).count()
-    if existing_items > 0:
+def _find_source_company_id(db: Session) -> Optional[int]:
+    focus_emails = {account["email"] for account in FOCUS_GROUP_ACCOUNTS}
+    admins = db.query(User).filter(User.is_admin == True).order_by(User.created_at.asc()).all()
+
+    for admin in admins:
+        if not admin.company or admin.email in focus_emails:
+            continue
+        has_items = db.query(PriceItem.id).filter(PriceItem.company_id == admin.company.id).first() is not None
+        if has_items:
+            return admin.company.id
+
+    for admin in admins:
+        if not admin.company:
+            continue
+        has_items = db.query(PriceItem.id).filter(PriceItem.company_id == admin.company.id).first() is not None
+        if has_items:
+            return admin.company.id
+
+    return None
+
+
+def _company_has_legacy_mock_items(db: Session, company_id: int) -> bool:
+    names = {
+        row[0]
+        for row in db.query(PriceItem.name).filter(PriceItem.company_id == company_id).all()
+    }
+    return bool(names) and names == LEGACY_MOCK_ITEM_NAMES
+
+
+def _clone_price_items_from_source(db: Session, source_company_id: int, target_company_id: int) -> None:
+    source_items = db.query(PriceItem).filter(PriceItem.company_id == source_company_id).all()
+    if not source_items:
         return
 
-    for row in PRICE_TEMPLATE:
-        category = categories.get(row["category_slug"])
-        if category is None:
-            logger.warning("Missing category slug '%s', skipping item '%s'", row["category_slug"], row["name"])
-            continue
+    db.query(PriceItem).filter(PriceItem.company_id == target_company_id).delete(synchronize_session=False)
 
+    for item in source_items:
         db.add(
             PriceItem(
-                company_id=company.id,
-                category_id=category.id,
-                name=row["name"],
-                unit=row["unit"],
-                price=row["price"],
-                synonyms=row["synonyms"],
-                is_active=True,
-                is_custom=False,
+                company_id=target_company_id,
+                category_id=item.category_id,
+                name=item.name,
+                unit=item.unit,
+                price=item.price,
+                synonyms=item.synonyms,
+                is_active=item.is_active,
+                is_custom=item.is_custom,
             )
         )
 
     db.commit()
-    logger.info("Seeded demo price list for company_id=%s", company.id)
+    logger.info("Copied %s price items from source company_id=%s to company_id=%s", len(source_items), source_company_id, target_company_id)
+
+
+def _ensure_price_items(db: Session, company: Company, source_company_id: Optional[int]) -> None:
+    if source_company_id is None:
+        logger.warning("No source admin price list found. Skipping price list seed for %s", company.id)
+        return
+
+    if company.id == source_company_id:
+        return
+
+    items_count = db.query(PriceItem).filter(PriceItem.company_id == company.id).count()
+    if items_count == 0:
+        _clone_price_items_from_source(db, source_company_id, company.id)
+        return
+
+    if _company_has_legacy_mock_items(db, company.id):
+        _clone_price_items_from_source(db, source_company_id, company.id)
 
 
 def init_db(db: Session) -> None:
-    categories = _ensure_categories(db)
+    source_company_id = _find_source_company_id(db)
+    if source_company_id:
+        logger.info("Using source admin company_id=%s for focus-group price structure", source_company_id)
+    else:
+        logger.warning("Source admin company with price items not found")
 
     for account in FOCUS_GROUP_ACCOUNTS:
         user = _ensure_user(db, account)
         company = _ensure_company(db, user, account["company"])
-        _ensure_price_items(db, company, categories)
+        _ensure_price_items(db, company, source_company_id)
 
     logger.info("Focus-group seed completed (%s accounts)", len(FOCUS_GROUP_ACCOUNTS))

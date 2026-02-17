@@ -606,7 +606,7 @@ onUnmounted(() => {
     if (roomMediaRecorder && roomMediaRecorder.state !== 'inactive') roomMediaRecorder.stop()
 })
 
-defineEmits(['next', 'prev'])
+const emit = defineEmits(['next', 'prev'])
 </script>
 
 <style scoped>
